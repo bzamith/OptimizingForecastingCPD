@@ -1,0 +1,12 @@
+# IDE
+.idea/
+dist/
+*.egg-info
+*.DS_Store
+
+# Virtual Env
+env/
+
+# Project
+datasets/
+repo_info.txt
