@@ -11,12 +11,15 @@ run_flake8()
 }
 
 if [ "$1" == "build" ]; then
+  mkdir -p outputs/
   echo ">>>>>>>>>>>> [1/1] Running flake8"
   flake8 . --config=$FLAKE8_CONFIG
 elif [ "$1" == "execute" ]; then
+  mkdir -p outputs/
   echo ">>>>>>>>>>>> [1/1] Executing"
   TF_CPP_MIN_LOG_LEVEL=3 python3 main.py $2 $3
 elif [ "$1" == "all" ]; then
+  mkdir -p outputs/
   echo ">>>>>>>>>>>> [1/2] Running flake8"
   flake8 . --config=$FLAKE8_CONFIG
   echo ">>>>>>>>>>>> [2/2] Executing"
