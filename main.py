@@ -7,7 +7,7 @@ import pandas as pd
 from src.dataset import read_dataset
 from src.execute import CUT_COLUMN, CUT_SECONDS_COLUMN, execute_binary_seg_cut, execute_bottom_up_cut, execute_fixed_cut, execute_full, execute_mean_cut, execute_median_cut, execute_window_cut
 
-METHODS = ["L1"] #, "L2", "Normal", "RBF", "Cosine", "Linear", "Clinear", "Rank", "Mahalanobis", "AR"]
+METHODS = ["L1", "L2", "Normal", "RBF", "Cosine", "Linear", "Clinear", "Rank", "Mahalanobis", "AR"]
 
 if __name__ == "__main__":
     approaches_list = []
@@ -28,7 +28,7 @@ if __name__ == "__main__":
 
     # Fixed cuts
     fixed_cut = 0.05
-    while fixed_cut <= 0.15: # Change 0.95
+    while fixed_cut <= 0.95:
         fixed_cut_execution_df, fixed_cut_errors_df = execute_fixed_cut(fixed_cut, X_train, X_test, variables)
         executions_df_list.append(fixed_cut_execution_df)
         errors_df_list.append(fixed_cut_errors_df)
