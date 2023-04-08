@@ -130,10 +130,10 @@ def execute_full(X_train: pd.DataFrame, X_test: pd.DataFrame, variables: List[st
 
 def execute_fixed_cut(cut_perc: float, X_train: pd.DataFrame, X_test: pd.DataFrame, variables: List[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
     cut = math.floor(X_train.shape[0] * cut_perc)
-    X_train = X_train[cut:]
-    y_true, y_pred, metrics, train_seconds = fit(X_train, X_test, variables)
+    cut_X_train = X_train[cut:]
+    y_true, y_pred, metrics, train_seconds = fit(cut_X_train, X_test, variables)
     cut_perc = (cut / X_train.shape[0]) * 100
-    execution_df = get_execution_results(X_train, X_test, cut, cut_perc, None, train_seconds)
+    execution_df = get_execution_results(cut_X_train, X_test, cut, cut_perc, None, train_seconds)
     errors_df = get_error_results(y_true, y_pred, variables)
     return execution_df, errors_df
 
