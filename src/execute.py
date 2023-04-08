@@ -143,7 +143,7 @@ def execute_window_cut(method: str, X_train: pd.DataFrame, X_test: pd.DataFrame,
     cut_X_train = X_train[cut:]
     y_true, y_pred, metrics, train_seconds = fit(cut_X_train, X_test, variables)
     cut_perc = (cut / X_train.shape[0]) * 100
-    execution_df = get_execution_results(X_train, X_test, cut, cut_perc, cut_seconds, train_seconds)
+    execution_df = get_execution_results(cut_X_train, X_test, cut, cut_perc, cut_seconds, train_seconds)
     errors_df = get_error_results(y_true, y_pred, variables)
     return execution_df, errors_df
 
@@ -153,7 +153,7 @@ def execute_binary_seg_cut(method: str, X_train: pd.DataFrame, X_test: pd.DataFr
     cut_X_train = X_train[cut:]
     y_true, y_pred, metrics, train_seconds = fit(cut_X_train, X_test, variables)
     cut_perc = (cut / X_train.shape[0]) * 100
-    execution_df = get_execution_results(X_train, X_test, cut, cut_perc, cut_seconds, train_seconds)
+    execution_df = get_execution_results(cut_X_train, X_test, cut, cut_perc, cut_seconds, train_seconds)
     errors_df = get_error_results(y_true, y_pred, variables)
     return execution_df, errors_df
 
@@ -163,7 +163,7 @@ def execute_bottom_up_cut(method: str, X_train: pd.DataFrame, X_test: pd.DataFra
     cut_X_train = X_train[cut:]
     y_true, y_pred, metrics, train_seconds = fit(cut_X_train, X_test, variables)
     cut_perc = (cut / X_train.shape[0]) * 100
-    execution_df = get_execution_results(X_train, X_test, cut, cut_perc, cut_seconds, train_seconds)
+    execution_df = get_execution_results(cut_X_train, X_test, cut, cut_perc, cut_seconds, train_seconds)
     errors_df = get_error_results(y_true, y_pred, variables)
     return execution_df, errors_df
 
@@ -177,7 +177,7 @@ def execute_mean_cut(cuts: List[int], cut_seconds: List[float], X_train: pd.Data
     cut_perc = (cut / X_train.shape[0]) * 100
 
     y_true, y_pred, metrics, train_seconds = fit(mean_X_train, X_test, variables)
-    execution_df = get_execution_results(X_train, X_test, cut, cut_perc, total_cut_seconds, train_seconds)
+    execution_df = get_execution_results(mean_X_train, X_test, cut, cut_perc, total_cut_seconds, train_seconds)
     errors_df = get_error_results(y_true, y_pred, variables)
     return execution_df, errors_df
 
@@ -187,10 +187,10 @@ def execute_median_cut(cuts: List[int], cut_seconds: List[float], X_train: pd.Da
     cuts.sort()
 
     cut = math.floor(median(cuts))
-    mean_X_train = X_train[cut:]
+    median_X_train = X_train[cut:]
     cut_perc = (cut / X_train.shape[0]) * 100
 
-    y_true, y_pred, metrics, train_seconds = fit(mean_X_train, X_test, variables)
-    execution_df = get_execution_results(X_train, X_test, cut, cut_perc, total_cut_seconds, train_seconds)
+    y_true, y_pred, metrics, train_seconds = fit(median_X_train, X_test, variables)
+    execution_df = get_execution_results(median_X_train, X_test, cut, cut_perc, total_cut_seconds, train_seconds)
     errors_df = get_error_results(y_true, y_pred, variables)
     return execution_df, errors_df
