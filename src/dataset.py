@@ -1,7 +1,6 @@
+import math
 from enum import Enum
 from typing import List, Tuple, Union
-
-import math
 
 import pandas as pd
 
@@ -95,7 +94,8 @@ def fill_na(df: pd.DataFrame, variables: List[str]) -> pd.DataFrame:
     return df
 
 
-def read_dataset(dataset_domain: Union[str, DatasetDomain], dataset: Union[str, EmbrapaDatasets, INMETDatasets, UCIDatasets, TCPDDatasets]) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, List[str]]:
+def read_dataset(dataset_domain: Union[str, DatasetDomain],
+                 dataset: Union[str, EmbrapaDatasets, INMETDatasets, UCIDatasets, TCPDDatasets]) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, List[str]]:
     if isinstance(dataset_domain, str):
         dataset_domain = get_dataset_domain(dataset_domain)
     if isinstance(dataset, str):
