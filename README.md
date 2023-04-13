@@ -2,7 +2,7 @@
 
 ## About
 
-- Author: Bruna Zamith Santos
+- Authors: Bruna Zamith Santos, Maira Farias de Andrade Lira
 - Supervisors: Ricardo Cerri, Ricardo Prudêncio
 
 ## Install
