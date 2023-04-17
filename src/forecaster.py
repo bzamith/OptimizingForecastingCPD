@@ -1,5 +1,6 @@
 import math
 import time
+from multiprocessing import Process, Manager
 from typing import Any, List, Tuple
 
 import numpy as np
@@ -171,30 +172,42 @@ class CNNForecaster:
         return y_pred, y_true
 
 
-def hpo_fit(X_train: pd.DataFrame, X_test: pd.DataFrame, variables: List[str]) -> Tuple[np.array, np.array, List[float], float]:
+def hpo_fit(X_train: pd.DataFrame, X_test: pd.DataFrame, variables: List[str]) -> Tuple[np.array, np.array, List[float], float, float]:
     index_split = math.floor(X_train.shape[0] * TRAIN_PERC)
     hpo_X_train = X_train[:index_split].reset_index(drop=True)
     hpo_X_val = X_train[index_split:].reset_index(drop=True)
 
-    best_dict = {}
-    best_mape = 1000000000000000
+    start_time = time.time()
 
+    def worker(observation_window, train_batch_size, nb_units, hpo_X_train, hpo_X_val, variables, best_mape, best_dict):
+        cnn = CNNForecaster(variables, observation_window, train_batch_size, nb_units)
+        _, _ = cnn.fit(hpo_X_train)
+        curr_mape = cnn.evaluate(hpo_X_val)[0]
+        if curr_mape < best_mape.value:
+            best_mape.value = curr_mape
+            best_dict["observation_window"] = observation_window
+            best_dict["train_batch_size"] = train_batch_size
+            best_dict["nb_units"] = nb_units
+
+    manager = Manager()
+    best_mape = manager.Value('d', float('inf'))
+    best_dict = manager.dict()
+
+    processes = []
     for observation_window in OBSERVATION_WINDOW_GRID:
         for train_batch_size in TRAIN_BATCH_SIZE_GRID:
             for nb_units in NB_UNITS_GRID:
-                cnn = CNNForecaster(variables, observation_window, train_batch_size, nb_units)
-                _, _ = cnn.fit(hpo_X_train)
-                curr_mape = cnn.evaluate(hpo_X_val)[0]
-                if curr_mape < best_mape:
-                    best_mape = curr_mape
-                    best_dict = {
-                        "observation_window": observation_window,
-                        "train_batch_size": train_batch_size,
-                        "nb_units": nb_units,
-                    }
+                p = Process(target=worker, args=(observation_window, train_batch_size, nb_units, hpo_X_train, hpo_X_val, variables, best_mape, best_dict))
+                p.start()
+                processes.append(p)
+
+    for p in processes:
+        p.join()
+
+    end_time = time.time()
 
     cnn = CNNForecaster(variables, best_dict["observation_window"], best_dict["train_batch_size"], best_dict["nb_units"])
-    _, seconds = cnn.fit(X_train)
+    _, train_seconds = cnn.fit(X_train)
     y_pred, y_true = cnn.predict(X_test)
     metrics = cnn.evaluate(X_test)
-    return y_true, y_pred, metrics, seconds
+    return y_true, y_pred, metrics, train_seconds, (end_time - start_time)
