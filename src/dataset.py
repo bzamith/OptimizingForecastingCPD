@@ -15,6 +15,7 @@ class DatasetDomain(Enum):
     INMET = "inmet"
     UCI = "uci"
     TCPD = "tcpd"
+    DUMMY = "dummy"
 
 
 class EmbrapaDatasets(Enum):
@@ -65,6 +66,12 @@ class TCPDDatasets(Enum):
     WELL_LOG = ("well_log.csv", ["V1"])
 
 
+class DummyDatasets(Enum):
+    """Enum for different Dummy datasets"""
+
+    DUMMY = ("dummy.csv", ["v1", "v2"])
+
+
 def get_dataset_domain(domain: str) -> DatasetDomain:
     for element in DatasetDomain:
         if element.name == domain:
@@ -72,7 +79,7 @@ def get_dataset_domain(domain: str) -> DatasetDomain:
     raise Exception("No DatasetDomain found for: " + domain)
 
 
-def get_dataset(dataset: str) -> Union[EmbrapaDatasets, INMETDatasets, UCIDatasets, TCPDDatasets]:
+def get_dataset(dataset: str) -> Union[EmbrapaDatasets, INMETDatasets, UCIDatasets, TCPDDatasets, DummyDatasets]:
     for element in EmbrapaDatasets:
         if element.name == dataset:
             return element
@@ -85,6 +92,9 @@ def get_dataset(dataset: str) -> Union[EmbrapaDatasets, INMETDatasets, UCIDatase
     for element in TCPDDatasets:
         if element.name == dataset:
             return element
+    for element in DummyDatasets:
+        if element.name == dataset:
+            return element
     raise Exception("No Dataset found for: " + dataset)
 
 
@@ -95,7 +105,7 @@ def fill_na(df: pd.DataFrame, variables: List[str]) -> pd.DataFrame:
 
 
 def read_dataset(dataset_domain: Union[str, DatasetDomain],
-                 dataset: Union[str, EmbrapaDatasets, INMETDatasets, UCIDatasets, TCPDDatasets]) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, List[str]]:
+                 dataset: Union[str, EmbrapaDatasets, INMETDatasets, UCIDatasets, TCPDDatasets, DummyDatasets]) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, List[str]]:
     if isinstance(dataset_domain, str):
         dataset_domain = get_dataset_domain(dataset_domain)
     if isinstance(dataset, str):
