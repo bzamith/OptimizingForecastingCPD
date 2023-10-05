@@ -17,9 +17,9 @@ from sklearn.metrics import mean_absolute_percentage_error, mean_absolute_error,
 
 from multiprocessing import Queue
 
-OBSERVATION_WINDOW_GRID = [5, 7, 14, 21, 28]
-NB_UNITS_GRID = [25, 50, 100, 200]
-TRAIN_BATCH_SIZE_GRID = [4, 8, 16, 32]
+OBSERVATION_WINDOW_GRID = [7, 14, 21]
+NB_UNITS_GRID = [25, 50, 100]
+TRAIN_BATCH_SIZE_GRID = [8, 16, 32]
 
 CUT_COLUMN = "Cut"
 CUT_SECONDS_COLUMN = "Cut Seconds"

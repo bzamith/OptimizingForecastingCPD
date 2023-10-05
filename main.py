@@ -14,7 +14,7 @@ from src.dataset import read_dataset
 from src.execute import CUT_COLUMN, CUT_SECONDS_COLUMN, execute_binary_seg_cut, execute_bottom_up_cut, execute_fixed_cut, execute_full, execute_mean_cut, execute_median_cut, execute_window_cut
 
 METHODS = ["L1", "L2", "Normal", "RBF", "Cosine", "Linear", "Clinear", "Rank", "Mahalanobis", "AR"]
-NB_EXECUTIONS = 5
+NB_EXECUTIONS = 1
 
 tf.get_logger().setLevel('ERROR')
 

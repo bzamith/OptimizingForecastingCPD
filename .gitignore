@@ -8,6 +8,5 @@ dist/
 env/
 
 # Project
-datasets/
 repo_info.txt
-outputs/
+outputs_old/
