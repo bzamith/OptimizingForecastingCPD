@@ -60,7 +60,7 @@ def get_error_results(y_true: pd.DataFrame, y_pred: pd.DataFrame, variables: Lis
     return results
 
 
-def run(execution_id: str, dataset_domain_argv: str, dataset_argv: str) -> None:
+def run(execution_id: str, timestamp: str, dataset_domain_argv: str, dataset_argv: str) -> None:
     print(f"Reading dataset {dataset_argv} from {dataset_domain_argv}")
     df, variables = read_dataset(dataset_domain_argv, dataset_argv)
     print(f"Variables: {variables}")
@@ -81,6 +81,7 @@ def run(execution_id: str, dataset_domain_argv: str, dataset_argv: str) -> None:
 
     report = {
         'execution_id': execution_id,
+        'timestamp': timestamp,
         'seed': SEED,
         'observation_window': OBSERVATION_WINDOW,
         'train_perc': TRAIN_PERC,
@@ -181,7 +182,8 @@ if __name__ == "__main__":
     dataset_domain_argv = sys.argv[1]
     dataset_argv = sys.argv[2]
 
-    execution_id = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    execution_id = f"{dataset_domain_argv}_{dataset_argv}_{timestamp}"
     print(f"Execution id: {execution_id}")
 
-    run(execution_id, dataset_domain_argv, dataset_argv)
+    run(execution_id, timestamp, dataset_domain_argv, dataset_argv)
