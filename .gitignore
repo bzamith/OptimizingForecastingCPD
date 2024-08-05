@@ -3,9 +3,12 @@
 dist/
 *.egg-info
 *.DS_Store
+*__pycache__
+passcode.txt
 
 # Virtual Env
 env/
+outputs/
 
 # Project
 repo_info.txt

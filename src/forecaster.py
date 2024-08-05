@@ -1,56 +1,80 @@
-import time
+import io
+from typing import Any
+
+from keras_tuner import HyperModel
 
 import numpy as np
+
 from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.layers import Dense, GRU, LSTM, Input
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense
+from tensorflow.keras.optimizers import Adam
+
+from config.constants import FORECASTER_OBJECTIVE, OBSERVATION_WINDOW
 
 
-class Forecaster:
-    def __init__(self, observation_window, nb_units, train_batch_size):
-        self.observation_window = observation_window
-        self.nb_units = nb_units
-        self.train_batch_size = train_batch_size
-        self.model = None
+class TimeSeriesHyperModel(HyperModel):
+    def __init__(self, n_variables: int, model_type: str = 'LSTM'):
+        super().__init__()
+        self.model_type = model_type
+        self.n_variables = n_variables
 
-    def _reshape_input(self, X):
-        num_samples = len(X) - self.observation_window
-        num_features = X.shape[1]  # Get the number of features
-        X_reshaped = np.zeros((num_samples, self.observation_window, num_features))
-        y_reshaped = np.zeros((num_samples, 1, num_features))
-        for i in range(num_samples):
-            X_reshaped[i] = X[i:i+self.observation_window]
-            y_reshaped[i] = X.iloc[i+self.observation_window]
-        X_reshaped = np.array(X_reshaped)
-        y_reshaped = np.array(y_reshaped)
-        return X_reshaped, y_reshaped
+    def build(self, hp: Any) -> Sequential:
+        model = Sequential()
+        model.add(Input(shape=(OBSERVATION_WINDOW, self.n_variables)))
 
-    def fit(self, X_train):
-        start_time = time.time()
+        for i in range(hp.Int('num_layers', 1, 5)):
+            if self.model_type == 'LSTM':
+                model.add(
+                    LSTM(
+                        units=hp.Int('units_' + str(i), 32, 128, step=32),
+                        return_sequences=True if i < hp.Int('num_layers', 1, 3) - 1 else False,
+                    )
+                )
+            elif self.model_type == 'GRU':
+                model.add(
+                    GRU(
+                        units=hp.Int('units_' + str(i), 32, 128, step=32),
+                        return_sequences=True if i < hp.Int('num_layers', 1, 3) - 1 else False,
+                    )
+                )
+        model.add(Dense(self.n_variables))
+        model.compile(
+            optimizer=Adam(
+                learning_rate=hp.Choice(
+                    'learning_rate', [1e-2, 1e-3, 1e-4]
+                )
+            ),
+            loss='mean_squared_error'
+        )
+        return model
 
-        X_train_reshaped, y_train_reshaped = self._reshape_input(X_train)
-        n_features = X_train_reshaped.shape[2]
-        self.model = Sequential()
-        self.model.add(LSTM(self.nb_units, input_shape=(self.observation_window, n_features)))
-        self.model.add(Dense(n_features))
-        self.model.compile(loss='mse', optimizer='adam')
-        early_stopping = EarlyStopping(patience=5, monitor='val_loss', restore_best_weights=True)
-        self.model.fit(X_train_reshaped, y_train_reshaped,
-                       epochs=250,
-                       batch_size=self.train_batch_size,
-                       callbacks=[early_stopping],
-                       validation_split=0.2,
-                       verbose=0)
+    def fit(self, hp: Any, model: Any, X_train: np.array, y_train: np.array, **kwargs) -> None:
+        early_stopping = EarlyStopping(
+            monitor=FORECASTER_OBJECTIVE,
+            patience=hp.Int('patience', 3, 15),
+            restore_best_weights=True
+        )
+        kwargs['callbacks'] = kwargs['callbacks'] + [early_stopping]
+        history = model.fit(
+            X_train,
+            y_train,
+            epochs=hp.Int('epochs', 50, 500),
+            batch_size=hp.Choice('batch_size', [16, 32, 64, 128]),
+            **kwargs,
+        )
 
-        end_time = time.time()
+        return history.history
 
-        return end_time - start_time
 
-    def predict(self, X_pred):
-        X_pred_reshaped, y_true = self._reshape_input(X_pred)
-        y_pred = self.model.predict(X_pred_reshaped, verbose=0)
-        y_true = y_true.tolist()
-        y_pred = y_pred.tolist()
-        y_true = [sublist[0] for sublist in y_true]
-        return y_true, y_pred
+class InternalForecaster:
+    def __init__(self, model: Sequential):
+        self.model = model
 
+    def forecast(self, X: np.array) -> np.array:
+        return self.model.predict(X)
+
+    def summary(self) -> str:
+        string_io = io.StringIO()
+        self.model.summary(print_fn=lambda x: string_io.write(x + '\n'))
+        return string_io.getvalue()

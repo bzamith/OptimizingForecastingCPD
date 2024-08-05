@@ -2,10 +2,11 @@ import math
 from enum import Enum
 from typing import List, Tuple, Union
 
+import numpy as np
+
 import pandas as pd
 
-DATE_COLUMN = "Date"
-TRAIN_PERC = 0.8
+from config.constants import DATE_COLUMN, OBSERVATION_WINDOW, TRAIN_PERC
 
 
 class DatasetDomain(Enum):
@@ -105,19 +106,40 @@ def fill_na(df: pd.DataFrame, variables: List[str]) -> pd.DataFrame:
 
 
 def read_dataset(dataset_domain: Union[str, DatasetDomain],
-                 dataset: Union[str, EmbrapaDatasets, INMETDatasets, UCIDatasets, TCPDDatasets, DummyDatasets]) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, List[str]]:
+                 dataset: Union[str, EmbrapaDatasets, INMETDatasets, UCIDatasets, TCPDDatasets, DummyDatasets]) -> Tuple[pd.DataFrame, List[str]]:
     if isinstance(dataset_domain, str):
         dataset_domain = get_dataset_domain(dataset_domain)
     if isinstance(dataset, str):
         dataset = get_dataset(dataset)
-    folder = "datasets/" + dataset_domain.value + "/"
+    folder = f"datasets/{dataset_domain.value}"
     file = dataset.value[0]
     variables = dataset.value[1]
-    df = pd.read_csv(folder + file)
+
+    df = pd.read_csv(f"{folder}/{file}")
     df = df[[DATE_COLUMN] + variables]
+
     if dataset_domain == DatasetDomain.INMET:
         df = fill_na(df, variables)
-    index_split = math.floor(df.shape[0] * TRAIN_PERC)
-    X_train = df[:index_split].reset_index(drop=True)
-    X_test = df[index_split:].reset_index(drop=True)
-    return df, X_train, X_test, variables
+
+    return df, variables
+
+
+def split_train_test(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    train_size = math.floor(df.shape[0] * TRAIN_PERC)
+    train = df.iloc[:train_size].reset_index(drop=True)
+    test = df.iloc[train_size:].reset_index(drop=True)
+
+    return train, test
+
+
+def split_X_y(df: pd.DataFrame) -> Tuple[np.array, np.array]:
+    X, y = [], []
+    if DATE_COLUMN in df.columns:
+        df = df.drop(columns=DATE_COLUMN)
+    for i in range(len(df) - OBSERVATION_WINDOW):
+        X.append(df.iloc[i:i + OBSERVATION_WINDOW])
+        y.append(df.iloc[i + OBSERVATION_WINDOW])
+    X = np.array(X)
+    y = np.array(y)
+
+    return X, y

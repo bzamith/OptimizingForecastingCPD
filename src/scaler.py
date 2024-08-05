@@ -5,10 +5,10 @@ import pandas as pd
 from sklearn import preprocessing as pp
 
 
-class MaxAbsScaler:
+class Scaler:
     """The Scaler entity"""
 
-    scaler = pp.MaxAbsScaler()
+    scaler = pp.MinMaxScaler()
 
     def __init__(self, variables: List[str]):
         self.variables = variables

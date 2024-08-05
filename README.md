@@ -8,7 +8,7 @@
 ## Install
 
 ```
-virtualenv -p /usr/bin/python3 env
+python3 -m virtualenv -p /usr/bin/python3 env
 source env/bin/activate
 pip3 install -r requirements.txt
 deactivate
@@ -31,9 +31,6 @@ chmod +x run.sh
 # First, build the code:
 ./run.sh build
 
-# Then, to run for Apple dataset (TCPD domain), without Hyper-Parameter Optimization:
+# Then, to run for Apple dataset (TCPD domain):
 ./run.sh execute TCPD APPLE
-
-# Same as above, but with Hyper-Parameter Tuning:
-./run.sh execute TCPD APPLE HPO
 ```
