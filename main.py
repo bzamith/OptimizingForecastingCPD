@@ -67,7 +67,7 @@ def run(execution_id: str, dataset_domain_argv: str, dataset_argv: str) -> None:
     }
 
     def run_inner(cut_point_model: str, cut_point_methods: Union[List[str], List[float]]) -> None:
-        for cut_point_method in [cut_point_methods[0]]:
+        for cut_point_method in cut_point_methods:
             forecaster_tuner = RandomSearch(
                 forecaster_hypermodel,
                 objective=FORECASTER_OBJECTIVE,
@@ -139,16 +139,15 @@ def run(execution_id: str, dataset_domain_argv: str, dataset_argv: str) -> None:
                     'best_forecaster_model': best_forecaster_model.summary(),
                 }
             }
+            report_path = f"outputs/report/{execution_id}"
+            os.makedirs(report_path, exist_ok=True)
+            with open(f"outputs/report/{execution_id}/report.json", 'w') as file:
+                json.dump(report, file, indent=4)
 
     run_inner("Fixed_Perc", FIXED_CUTS_PERCS)
     run_inner("Window", CUT_POINT_METHODS)
     run_inner("Bin_Seg", CUT_POINT_METHODS)
     run_inner("Bottom_Up", CUT_POINT_METHODS)
-
-    report_path = f"outputs/report/{execution_id}"
-    os.makedirs(report_path, exist_ok=True)
-    with open(f"outputs/report/{execution_id}/report.json", 'w') as file:
-        json.dump(report, file, indent=4)
 
 
 if __name__ == "__main__":

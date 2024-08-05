@@ -6,7 +6,7 @@ from keras_tuner import HyperModel
 import numpy as np
 
 from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.layers import Dense, GRU, LSTM, Input
+from tensorflow.keras.layers import Dense, GRU, Input, LSTM
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 
