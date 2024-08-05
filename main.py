@@ -12,7 +12,12 @@ import numpy as np
 
 import pandas as pd
 
-from sklearn.metrics import mean_absolute_percentage_error
+from sklearn.metrics import (
+    mean_absolute_error,
+    mean_absolute_percentage_error,
+    mean_squared_error,
+    r2_score
+)
 
 import tensorflow as tf
 
@@ -31,6 +36,28 @@ tf.get_logger().setLevel('ERROR')
 np.random.seed(SEED)
 random.seed(SEED)
 tf.random.set_seed(SEED)
+
+
+def get_error_results(y_true: pd.DataFrame, y_pred: pd.DataFrame, variables: List[str]) -> dict:
+    y_true = np.array(y_true, dtype=np.float64)
+    y_pred = np.array(y_pred, dtype=np.float64)
+
+    results = {
+        "Avg_MAPE": mean_absolute_percentage_error(y_true, y_pred),
+        "Avg_MAE": mean_absolute_error(y_true, y_pred),
+        "Avg_MSE": mean_squared_error(y_true, y_pred),
+        "Avg_R2": r2_score(y_true, y_pred)
+    }
+
+    for i in range(len(variables)):
+        y_true_i = [sublist[i] for sublist in y_true]
+        y_pred_i = [sublist[i] for sublist in y_pred]
+        variable = variables[i]
+        results[f"{variable}_MAPE"] = mean_absolute_percentage_error(y_true_i, y_pred_i)
+        results[f"{variable}_MAE"] = mean_absolute_error(y_true_i, y_pred_i)
+        results[f"{variable}_MSE"] = mean_squared_error(y_true_i, y_pred_i)
+        results[f"{variable}_R2"] = r2_score(y_true_i, y_pred_i)
+    return results
 
 
 def run(execution_id: str, dataset_domain_argv: str, dataset_argv: str) -> None:
@@ -123,13 +150,13 @@ def run(execution_id: str, dataset_domain_argv: str, dataset_argv: str) -> None:
             print("Calculating error")
             y_test = scaler.descale(pd.DataFrame(y_scaled_test, columns=variables))
             y_pred = scaler.descale(pd.DataFrame(y_scaled_pred, columns=variables))
-            mape = mean_absolute_percentage_error(y_test, y_pred)
-            print(f"Obtained MAPE: {mape}")
+            error_results = get_error_results(y_test, y_pred, variables)
+            print(f"Obtained error results: {error_results}")
 
             print("Writing report")
             report[f"model_{cut_point_model}"] = {
                 f"method_{cut_point_method}": {
-                    'MAPE': mape,
+                    'error_results': error_results,
                     'cut_duration': cut_duration,
                     'tuner_duration': tuner_duration,
                     'reduced_scaled_train_shape': reduced_scaled_train.shape,
