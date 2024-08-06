@@ -1,5 +1,5 @@
 import math
-from typing import List, Union
+from typing import List, Tuple, Union
 
 import numpy as np
 
@@ -20,13 +20,14 @@ class CutPointDetector:
             stack_list.append(df[col].values)
         return np.vstack(stack_list).T
 
-    def find_cut_point(self, df: pd.DataFrame, variables: List[str]) -> int:
+    def find_cut_point(self, df: pd.DataFrame, variables: List[str]) -> Tuple[int, float]:
         stacked_df = self.get_stack(df, variables)
-        cut = self.model.fit_predict(stacked_df, n_bkps=1)
-        return cut[0]
+        cut = self.model.fit_predict(stacked_df, n_bkps=1)[0]
+        cut_perc = cut * 100 / len(df)
+        return cut, cut_perc
 
     def apply_cut_point(self, df: pd.DataFrame, cut_point: int) -> pd.DataFrame:
-        assert cut_point < df.shape[0], f"Cut point {cut_point} out of dataframe range ({len(df)}"
+        assert cut_point < df.shape[0], f"Cut point {cut_point} out of dataframe range ({len(df)})"
         return df.iloc[cut_point:]
 
 
@@ -54,8 +55,8 @@ class FixedPercCutPointDetector(CutPointDetector):
         assert 0 <= method <= 1, f"Method {method} is out of range. Must be between 0 and 1."
         self.method = method
 
-    def find_cut_point(self, df: pd.DataFrame, variables: List[str]) -> int:
-        return math.floor(df.shape[0] * self.method)
+    def find_cut_point(self, df: pd.DataFrame, variables: List[str]) -> Tuple[int, float]:
+        return math.floor(df.shape[0] * self.method), self.method
 
 
 def get_cut_point_detector(cut_point_model: str, cut_point_method: Union[str, float]) -> CutPointDetector:
