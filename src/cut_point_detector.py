@@ -1,4 +1,5 @@
 import math
+from enum import Enum
 from typing import List, Tuple, Union
 
 import numpy as np
@@ -8,6 +9,20 @@ import pandas as pd
 import ruptures as rpt
 
 from config.constants import OBSERVATION_WINDOW
+
+
+class CutPointModel(Enum):
+    WINDOW = "WINDOW"
+    BIN_SEG = "BIN_SEG"
+    BOTTOM_UP = "BOTTOM_UP"
+    FIXED_PERC = "FIXED_PERC"
+
+    @classmethod
+    def from_str(cls, model: str):
+        for item in cls:
+            if item.value == model.upper():
+                return item
+        raise ValueError(f"{model} is not valid {cls.__name__}")
 
 
 class CutPointDetector:
@@ -59,14 +74,14 @@ class FixedPercCutPointDetector(CutPointDetector):
         return math.floor(df.shape[0] * self.method), self.method
 
 
-def get_cut_point_detector(cut_point_model: str, cut_point_method: Union[str, float]) -> CutPointDetector:
-    if cut_point_model.upper() == "WINDOW":
+def get_cut_point_detector(cut_point_model: CutPointModel, cut_point_method: Union[str, float]) -> CutPointDetector:
+    if cut_point_model == CutPointModel.WINDOW:
         return WindowCutPointDetector(cut_point_method)
-    elif cut_point_model.upper() == "BIN_SEG":
+    elif cut_point_model == CutPointModel.BIN_SEG:
         return BinSegCutPointDetector(cut_point_method)
-    elif cut_point_model.upper() == "BOTTOM_UP":
+    elif cut_point_model == CutPointModel.BOTTOM_UP:
         return BottomUpCutPointDetector(cut_point_method)
-    elif cut_point_model.upper() == "FIXED_PERC":
+    elif cut_point_model == CutPointModel.FIXED_PERC:
         return FixedPercCutPointDetector(cut_point_method)
     else:
-        raise Exception(f"Cut point model {cut_point_model} not implemented")
+        raise Exception(f"Cut point model {cut_point_model.value} not implemented")

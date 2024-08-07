@@ -31,6 +31,6 @@ chmod +x run.sh
 # First, build the code:
 ./run.sh build
 
-# Then, to run for Apple dataset (TCPD domain):
-./run.sh execute TCPD APPLE
+# Then, to run for Apple dataset (TCPD domain) and Window cut point model:
+./run.sh execute TCPD APPLE Window
 ```

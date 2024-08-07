@@ -4,12 +4,10 @@ dist/
 *.egg-info
 *.DS_Store
 *__pycache__
-passcode.txt
 
 # Virtual Env
 env/
 
 # Project
 repo_info.txt
-outputs_old/
-*outputs
+*outputs/tuner/

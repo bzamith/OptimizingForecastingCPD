@@ -59,7 +59,7 @@ class TimeSeriesHyperModel(HyperModel):
         history = model.fit(
             X_train,
             y_train,
-            epochs=hp.Int('epochs', 50, 500),
+            epochs=hp.Int('epochs', 25, 500),
             batch_size=hp.Choice('batch_size', [16, 32, 64, 128]),
             **kwargs,
         )
