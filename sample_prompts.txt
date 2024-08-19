@@ -1,0 +1,10 @@
+./run.sh execute INMET CRISTALINA_GO Window L1
+./run.sh execute INMET CRISTALINA_GO Window L2
+./run.sh execute INMET CRISTALINA_GO Window Normal
+./run.sh execute INMET CRISTALINA_GO Window RBF
+./run.sh execute INMET CRISTALINA_GO Window Cosine
+./run.sh execute INMET CRISTALINA_GO Window Linear
+./run.sh execute INMET CRISTALINA_GO Window Clinear
+./run.sh execute INMET CRISTALINA_GO Window Rank
+./run.sh execute INMET CRISTALINA_GO Window Mahalanobis
+./run.sh execute INMET CRISTALINA_GO Window AR

@@ -1,5 +1,5 @@
 [flake8]
-ignore = ANN003, ANN101, ANN204, ANN401
+ignore = ANN003, ANN101, ANN102, ANN204, ANN206, ANN401
 max_line_length = 200
 filename = *.py
 exclude = .git, __pycache__, datasets/*, env/*
