@@ -35,7 +35,7 @@ class CutPointMethod(Enum):
     @classmethod
     def from_str(cls, method: str):
         for item in cls:
-            if item.value.upper() == method.upper():
+            if item.value.upper() == method.upper() or item.name.upper() == method.upper():
                 return item
         raise ValueError(f"{method} is not valid {cls.__name__}")
 
@@ -49,7 +49,7 @@ class CutPointModel(Enum):
     @classmethod
     def from_str(cls, model: str):
         for item in cls:
-            if item.value.upper() == model.upper():
+            if item.value.upper() == model.upper() or item.name.upper() == model.upper():
                 return item
         raise ValueError(f"{model} is not valid {cls.__name__}")
 

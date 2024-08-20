@@ -8,3 +8,35 @@
 ./run.sh execute INMET CRISTALINA_GO Window Rank
 ./run.sh execute INMET CRISTALINA_GO Window Mahalanobis
 ./run.sh execute INMET CRISTALINA_GO Window AR
+
+./run.sh execute INMET CRISTALINA_GO Bin_Seg L1
+./run.sh execute INMET CRISTALINA_GO Bin_Seg L2
+./run.sh execute INMET CRISTALINA_GO Bin_Seg Normal
+./run.sh execute INMET CRISTALINA_GO Bin_Seg RBF
+./run.sh execute INMET CRISTALINA_GO Bin_Seg Cosine
+./run.sh execute INMET CRISTALINA_GO Bin_Seg Linear
+./run.sh execute INMET CRISTALINA_GO Bin_Seg Clinear
+./run.sh execute INMET CRISTALINA_GO Bin_Seg Rank
+./run.sh execute INMET CRISTALINA_GO Bin_Seg Mahalanobis
+./run.sh execute INMET CRISTALINA_GO Bin_Seg AR
+
+./run.sh execute INMET CRISTALINA_GO Bottom_Up L1
+./run.sh execute INMET CRISTALINA_GO Bottom_Up L2
+./run.sh execute INMET CRISTALINA_GO Bottom_Up Normal
+./run.sh execute INMET CRISTALINA_GO Bottom_Up RBF
+./run.sh execute INMET CRISTALINA_GO Bottom_Up Cosine
+./run.sh execute INMET CRISTALINA_GO Bottom_Up Linear
+./run.sh execute INMET CRISTALINA_GO Bottom_Up Clinear
+./run.sh execute INMET CRISTALINA_GO Bottom_Up Rank
+./run.sh execute INMET CRISTALINA_GO Bottom_Up Mahalanobis
+./run.sh execute INMET CRISTALINA_GO Bottom_Up AR
+
+./run.sh execute INMET CRISTALINA_GO Fixed_Perc Fixed_Cut_0.0
+./run.sh execute INMET CRISTALINA_GO Fixed_Perc Fixed_Cut_0.1
+./run.sh execute INMET CRISTALINA_GO Fixed_Perc Fixed_Cut_0.2
+./run.sh execute INMET CRISTALINA_GO Fixed_Perc Fixed_Cut_0.3
+./run.sh execute INMET CRISTALINA_GO Fixed_Perc Fixed_Cut_0.4
+./run.sh execute INMET CRISTALINA_GO Fixed_Perc Fixed_Cut_0.5
+./run.sh execute INMET CRISTALINA_GO Fixed_Perc Fixed_Cut_0.6
+./run.sh execute INMET CRISTALINA_GO Fixed_Perc Fixed_Cut_0.7
+./run.sh execute INMET CRISTALINA_GO Fixed_Perc Fixed_Cut_0.8
