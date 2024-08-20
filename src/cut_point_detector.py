@@ -22,6 +22,7 @@ class CutPointMethod(Enum):
     RANK = "Rank"
     MAHALANOBIS = "Mahalanobis"
     AR = "AR"
+    FC0 = "Fixed_Cut_0.0"
     FC1 = "Fixed_Cut_0.1"
     FC2 = "Fixed_Cut_0.2"
     FC3 = "Fixed_Cut_0.3"
@@ -34,21 +35,21 @@ class CutPointMethod(Enum):
     @classmethod
     def from_str(cls, method: str):
         for item in cls:
-            if item.value == method.upper():
+            if item.value.upper() == method.upper():
                 return item
         raise ValueError(f"{method} is not valid {cls.__name__}")
 
 
 class CutPointModel(Enum):
-    WINDOW = "WINDOW"
-    BIN_SEG = "BIN_SEG"
-    BOTTOM_UP = "BOTTOM_UP"
-    FIXED_PERC = "FIXED_PERC"
+    WINDOW = "Window"
+    BIN_SEG = "Bin_Seg"
+    BOTTOM_UP = "Bottom_Up"
+    FIXED_PERC = "Fixed_Perc"
 
     @classmethod
     def from_str(cls, model: str):
         for item in cls:
-            if item.value == model.upper():
+            if item.value.upper() == model.upper():
                 return item
         raise ValueError(f"{model} is not valid {cls.__name__}")
 

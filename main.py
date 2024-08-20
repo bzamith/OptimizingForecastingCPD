@@ -62,14 +62,14 @@ def get_error_results(y_true: pd.DataFrame, y_pred: pd.DataFrame, variables: Lis
     return results
 
 
-def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str, cut_point_model: str, cut_point_method: str) -> None:
-    execution_id = f"{timestamp}_{dataset_domain_argv}_{dataset_argv}_{cut_point_model}_{cut_point_method}"
+def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str, cut_point_model_argv: str, cut_point_method_argv: str) -> None:
+    execution_id = f"{timestamp}_{dataset_domain_argv}_{dataset_argv}_{cut_point_model_argv}_{cut_point_method_argv}"
 
-    print(f"Extracting cut point model enum ({cut_point_model})")
-    cut_point_model = CutPointModel.from_str(cut_point_model)
+    print(f"Extracting cut point model enum ({cut_point_model_argv})")
+    cut_point_model = CutPointModel.from_str(cut_point_model_argv)
 
-    print(f"Extracting cut point model enum ({cut_point_method})")
-    cut_point_method = CutPointMethod.from_str(cut_point_method)
+    print(f"Extracting cut point model enum ({cut_point_method_argv})")
+    cut_point_method = CutPointMethod.from_str(cut_point_method_argv)
 
     print(f"Reading dataset {dataset_argv} from {dataset_domain_argv}")
     df, variables = read_dataset(dataset_domain_argv, dataset_argv)
@@ -137,7 +137,7 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str, cut_point_m
         objective=FORECASTER_OBJECTIVE,
         max_trials=NB_TRIALS,
         directory=f"outputs/tuner/{execution_id}",
-        project_name=f"{cut_point_model.value}/{cut_point_method.value}",
+        project_name=f"{cut_point_model.value}_{cut_point_method.value}",
         seed=SEED,
         overwrite=True
     )
@@ -183,7 +183,7 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str, cut_point_m
         'best_trial_score': best_trial.score,
         'best_forecaster_model': best_forecaster_model.summary(),
     })
-    report_path = f"outputs/report/{cut_point_model}/{cut_point_method}/{timestamp}"
+    report_path = f"outputs/report/{dataset_domain_argv}/{dataset_argv}/{cut_point_model.value}/{cut_point_method.value}/{timestamp}"
 
     os.makedirs(report_path, exist_ok=True)
     with open(f"{report_path}/report.json", 'w') as file:
@@ -195,9 +195,9 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str, cut_point_m
 if __name__ == "__main__":
     dataset_domain_argv = sys.argv[1]
     dataset_argv = sys.argv[2]
-    cut_point_model = sys.argv[3]
-    cut_point_method = sys.argv[4]
+    cut_point_model_argv = sys.argv[3]
+    cut_point_method_argv = sys.argv[4]
 
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
-    run(timestamp, dataset_domain_argv, dataset_argv, cut_point_model, cut_point_method)
+    run(timestamp, dataset_domain_argv, dataset_argv, cut_point_model_argv, cut_point_method_argv)
