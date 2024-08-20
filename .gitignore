@@ -11,4 +11,4 @@ env/
 # Project
 repo_info.txt
 *outputs/tuner/
-*outputs/report_olds/
+*outputs/report/
