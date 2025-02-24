@@ -1,4 +1,4 @@
-Date,holiday,temp,rain_1h,snow_1h,clouds_all,weather_main,weather_description,traffic_volume
+ds,holiday,temp,rain_1h,snow_1h,clouds_all,weather_main,weather_description,traffic_volume
 02/10/12 09:00,None,288.28,0,0,40,Clouds,scattered clouds,5545
 02/10/12 10:00,None,289.36,0,0,75,Clouds,broken clouds,4516
 02/10/12 11:00,None,289.58,0,0,90,Clouds,overcast clouds,4767

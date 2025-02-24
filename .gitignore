@@ -9,6 +9,6 @@ dist/
 env/
 
 # Project
-repo_info.txt
+*.zip
 *outputs/tuner/
 *outputs/report/
