@@ -6,12 +6,14 @@ import numpy as np
 
 import pandas as pd
 
-from config.constants import DATE_COLUMN, OBSERVATION_WINDOW, TRAIN_PERC
+from config.constants import (
+    DATE_COLUMN, FORECAST_HORIZON,
+    OBSERVATION_WINDOW, TRAIN_PERC
+)
 
 
 class DatasetDomain(Enum):
-    """
-    Enum for different dataset domains.
+    """Enumeration for different dataset domains.
 
     Attributes:
         INMET (str): Represents the INMET dataset domain.
@@ -19,7 +21,6 @@ class DatasetDomain(Enum):
         TCPD (str): Represents the TCPD dataset domain.
         DUMMY (str): Represents a dummy dataset domain for testing purposes.
     """
-
     INMET = "inmet"
     UCI = "uci"
     TCPD = "tcpd"
@@ -27,20 +28,18 @@ class DatasetDomain(Enum):
 
 
 class INMETDatasets(Enum):
-    """
-    Enum for different INMET datasets.
+    """Enumeration for different INMET datasets.
 
     Attributes:
-        BRASILIA_DF (tuple): Dataset for Brasília, DF with the filename 
-            "A001_Brasilia_DF.csv" and columns ["P", "PrA", "T", "UR", "VV"].
-        VITORIA_ES (tuple): Dataset for Vitoria, ES with the filename 
-            "A612_Vitoria_ES.csv" and columns ["P", "PrA", "T", "UR", "VV"].
-        PORTOALEGRE_RS (tuple): Dataset for Porto Alegre, RS with the filename 
-            "A801_PortoAlegre_RS" and columns ["P", "PrA", "T", "UR", "VV"].
-        SAOPAULO_SP (tuple): Dataset for São Paulo, SP with the filename 
-            "A701_SAOPAULO_SP" and columns ["P", "PrA", "T", "UR", "VV"].
+        BRASILIA_DF (tuple): Tuple with the filename "A001_Brasilia_DF.csv" and a list of columns
+            ["P", "PrA", "T", "UR", "VV"] for Brasília, DF.
+        VITORIA_ES (tuple): Tuple with the filename "A612_Vitoria_ES.csv" and a list of columns
+            ["P", "PrA", "T", "UR", "VV"] for Vitoria, ES.
+        PORTOALEGRE_RS (tuple): Tuple with the filename "A801_PortoAlegre_RS.csv" and a list of columns
+            ["P", "PrA", "T", "UR", "VV"] for Porto Alegre, RS.
+        SAOPAULO_SP (tuple): Tuple with the filename "A701_SAOPAULO_SP.csv" and a list of columns
+            ["P", "PrA", "T", "UR", "VV"] for São Paulo, SP.
     """
-
     BRASILIA_DF = ("A001_Brasilia_DF.csv", ["P", "PrA", "T", "UR", "VV"])
     VITORIA_ES = ("A612_Vitoria_ES.csv", ["P", "PrA", "T", "UR", "VV"])
     PORTOALEGRE_RS = ("A801_PortoAlegre_RS.csv", ["P", "PrA", "T", "UR", "VV"])
@@ -48,16 +47,20 @@ class INMETDatasets(Enum):
 
 
 class UCIDatasets(Enum):
-    """
-    UCIDatasets is an enumeration of different UCI datasets, each represented by a tuple containing the filename and a list of relevant features.
+    """Enumeration of different UCI datasets.
+
+    Each dataset is represented by a tuple containing the filename and a list of relevant features.
 
     Attributes:
-        AIR_QUALITY (tuple): Contains the filename "air_quality.csv" and a list of features ["CO(GT)", "NMHC(GT)", "C6H6(GT)", "NOx(GT)", "NO2(GT)", "T", "RH", "AH"].
-        PRSA_BEIJING (tuple): Contains the filename "prsa_beijing.csv" and a list of features ["DEWP", "TEMP", "PRES", "Iws", "Is", "Ir"].
-        APPLIANCES_ENERGY (tuple): Contains the filename "appliances_energy.csv" and a list of features ["T_out", "Press_mm_hg", "RH_out", "Windspeed", "Visibility", "Tdewpoint"].
-        METRO_TRAFFIC (tuple): Contains the filename "metro_traffic.csv" and a list of features ["temp", "rain_1h", "snow_1h", "clouds_all", "traffic_volume"].
+        AIR_QUALITY (tuple): Tuple with "air_quality.csv" and features
+            ["CO(GT)", "NMHC(GT)", "C6H6(GT)", "NOx(GT)", "NO2(GT)", "T", "RH", "AH"].
+        PRSA_BEIJING (tuple): Tuple with "prsa_beijing.csv" and features
+            ["DEWP", "TEMP", "PRES", "Iws", "Is", "Ir"].
+        APPLIANCES_ENERGY (tuple): Tuple with "appliances_energy.csv" and features
+            ["T_out", "Press_mm_hg", "RH_out", "Windspeed", "Visibility", "Tdewpoint"].
+        METRO_TRAFFIC (tuple): Tuple with "metro_traffic.csv" and features
+            ["temp", "rain_1h", "snow_1h", "clouds_all", "traffic_volume"].
     """
-
     AIR_QUALITY = ("air_quality.csv", ["CO(GT)", "NMHC(GT)", "C6H6(GT)", "NOx(GT)", "NO2(GT)", "T", "RH", "AH"])
     PRSA_BEIJING = ("prsa_beijing.csv", ["DEWP", "TEMP", "PRES", "Iws", "Is", "Ir"])
     APPLIANCES_ENERGY = ("appliances_energy.csv", ["T_out", "Press_mm_hg", "RH_out", "Windspeed", "Visibility", "Tdewpoint"])
@@ -65,32 +68,30 @@ class UCIDatasets(Enum):
 
 
 class TCPDDatasets(Enum):
-    """
-    Enum for different TCPD datasets.
+    """Enumeration for different TCPD datasets.
 
     Attributes:
-        APPLE (tuple): Dataset for Apple stock with columns ["Close", "Volume"].
-        BANK (tuple): Dataset for bank transactions with column ["Amount"].
-        BEE_WAGGLE (tuple): Dataset for bee waggle dance with columns ["x", "y", "sin(theta)", "cos(theta)"].
-        BITCOIN (tuple): Dataset for Bitcoin prices with column ["USD/Bitcoin"].
-        BRENT_SPOT (tuple): Dataset for Brent spot prices with column ["Dollars/Barrel"].
-        JFK_PASSENGERS (tuple): Dataset for JFK airport passengers with column ["Number of Passengers"].
-        LGA_PASSENGERS (tuple): Dataset for LGA airport passengers with column ["Number of Passengers"].
-        MEASLES (tuple): Dataset for measles cases with column ["V1"].
-        OCCUPANCY (tuple): Dataset for occupancy with columns ["V1", "V2", "V3", "V4"].
-        QUALITY_CONTROL_1 (tuple): Dataset for quality control with column ["V1"].
-        QUALITY_CONTROL_2 (tuple): Dataset for quality control with column ["V1"].
-        QUALITY_CONTROL_3 (tuple): Dataset for quality control with column ["V1"].
-        QUALITY_CONTROL_4 (tuple): Dataset for quality control with column ["V1"].
-        QUALITY_CONTROL_5 (tuple): Dataset for quality control with column ["V1"].
-        RUN_LOG (tuple): Dataset for run logs with columns ["Pace", "Distance"].
-        SCANLINE_42049 (tuple): Dataset for scanline with column ["Line 170"].
-        SCANLINE_126007 (tuple): Dataset for scanline with column ["Line 200"].
-        USD_ISK (tuple): Dataset for USD to ISK exchange rate with column ["Exchange rate"].
-        US_POPULATION (tuple): Dataset for US population with column ["Population"].
-        WELL_LOG (tuple): Dataset for well log with column ["V1"].
+        APPLE (tuple): Tuple with "apple.csv" and columns ["Close", "Volume"].
+        BANK (tuple): Tuple with "bank.csv" and column ["Amount"].
+        BEE_WAGGLE (tuple): Tuple with "bee_waggle_6.csv" and columns ["x", "y", "sin(theta)", "cos(theta)"].
+        BITCOIN (tuple): Tuple with "bitcoin.csv" and column ["USD/Bitcoin"].
+        BRENT_SPOT (tuple): Tuple with "brent_spot.csv" and column ["Dollars/Barrel"].
+        JFK_PASSENGERS (tuple): Tuple with "jfk_passengers.csv" and column ["Number of Passengers"].
+        LGA_PASSENGERS (tuple): Tuple with "lga_passengers.csv" and column ["Number of Passengers"].
+        MEASLES (tuple): Tuple with "measles.csv" and column ["V1"].
+        OCCUPANCY (tuple): Tuple with "occupancy.csv" and columns ["V1", "V2", "V3", "V4"].
+        QUALITY_CONTROL_1 (tuple): Tuple with "quality_control_1.csv" and column ["V1"].
+        QUALITY_CONTROL_2 (tuple): Tuple with "quality_control_2.csv" and column ["V1"].
+        QUALITY_CONTROL_3 (tuple): Tuple with "quality_control_3.csv" and column ["V1"].
+        QUALITY_CONTROL_4 (tuple): Tuple with "quality_control_4.csv" and column ["V1"].
+        QUALITY_CONTROL_5 (tuple): Tuple with "quality_control_5.csv" and column ["V1"].
+        RUN_LOG (tuple): Tuple with "run_log.csv" and columns ["Pace", "Distance"].
+        SCANLINE_42049 (tuple): Tuple with "scanline_42049.csv" and column ["Line 170"].
+        SCANLINE_126007 (tuple): Tuple with "scanline_126007.csv" and column ["Line 200"].
+        USD_ISK (tuple): Tuple with "usd_isk.csv" and column ["Exchange rate"].
+        US_POPULATION (tuple): Tuple with "us_population.csv" and column ["Population"].
+        WELL_LOG (tuple): Tuple with "well_log.csv" and column ["V1"].
     """
-
     APPLE = ("apple.csv", ["Close", "Volume"])
     BANK = ("bank.csv", ["Amount"])
     BEE_WAGGLE = ("bee_waggle_6.csv", ["x", "y", "sin(theta)", "cos(theta)"])
@@ -114,28 +115,25 @@ class TCPDDatasets(Enum):
 
 
 class DummyDatasets(Enum):
-    """
-    Enum class representing dummy datasets.
+    """Enumeration representing dummy datasets.
 
     Attributes:
-        DUMMY (tuple): A tuple containing the filename of the dummy dataset and a list of column names.
+        DUMMY (tuple): Tuple containing the filename of the dummy dataset and a list of column names.
     """
-
     DUMMY = ("dummy.csv", ["v1", "v2"])
 
 
 def get_dataset_domain(domain: str) -> DatasetDomain:
-    """
-    Retrieves the corresponding DatasetDomain enum member for a given domain name.
+    """Retrieve the DatasetDomain enum member for the given domain name.
 
     Args:
-        domain (str): The name of the domain to retrieve.
+        domain (str): The name of the domain.
 
     Returns:
         DatasetDomain: The corresponding DatasetDomain enum member.
 
     Raises:
-        Exception: If no matching DatasetDomain is found for the given domain name.
+        Exception: If no matching DatasetDomain is found.
     """
     for element in DatasetDomain:
         if element.name == domain:
@@ -144,14 +142,13 @@ def get_dataset_domain(domain: str) -> DatasetDomain:
 
 
 def get_dataset(dataset: str) -> Union[INMETDatasets, UCIDatasets, TCPDDatasets, DummyDatasets]:
-    """
-    Retrieves a dataset object based on the provided dataset name.
+    """Retrieve a dataset enum member based on the provided dataset name.
 
     Args:
-        dataset (str): The name of the dataset to retrieve.
+        dataset (str): The name of the dataset.
 
     Returns:
-        Union[INMETDatasets, UCIDatasets, TCPDDatasets, DummyDatasets]: The dataset object corresponding to the provided name.
+        Union[INMETDatasets, UCIDatasets, TCPDDatasets, DummyDatasets]: The corresponding dataset enum member.
 
     Raises:
         Exception: If no dataset is found with the provided name.
@@ -172,40 +169,39 @@ def get_dataset(dataset: str) -> Union[INMETDatasets, UCIDatasets, TCPDDatasets,
 
 
 def fill_na(df: pd.DataFrame, variables: List[str]) -> pd.DataFrame:
-    """
-    Fills missing values in specified columns of a DataFrame using linear interpolation.
+    """Fill missing values in specified columns of the DataFrame using linear interpolation.
 
-    Parameters:
-    df (pd.DataFrame): The DataFrame containing the data.
-    variables (List[str]): A list of column names in the DataFrame where missing values should be filled.
+    Args:
+        df (pd.DataFrame): The DataFrame containing the data.
+        variables (List[str]): List of column names to fill missing values.
 
     Returns:
-    pd.DataFrame: The DataFrame with missing values filled in the specified columns.
+        pd.DataFrame: The DataFrame with missing values filled in the specified columns.
     """
     for variable in variables:
         df[variable] = df[variable].interpolate(method='linear')
     return df
 
 
-def read_dataset(dataset_domain: Union[str, DatasetDomain],
-                 dataset: Union[str, INMETDatasets, UCIDatasets, TCPDDatasets, DummyDatasets]) -> Tuple[pd.DataFrame, List[str]]:
-    """
-    Reads a dataset based on the provided domain and dataset identifiers.
+def read_dataset(
+    dataset_domain: Union[str, DatasetDomain],
+    dataset: Union[str, INMETDatasets, UCIDatasets, TCPDDatasets, DummyDatasets]
+) -> Tuple[pd.DataFrame, List[str]]:
+    """Read a dataset based on the provided domain and dataset identifiers.
+
+    The CSV file is expected to be located in the "datasets/{dataset_domain}" directory.
+    The resulting DataFrame is filtered to include the date column and the specified variables.
+    For INMET domain datasets, missing values are filled using linear interpolation.
 
     Args:
-        dataset_domain (Union[str, DatasetDomain]): The domain of the dataset, either as a string or a DatasetDomain enum.
-        dataset (Union[str, INMETDatasets, UCIDatasets, TCPDDatasets, DummyDatasets]): The specific dataset to read, either as a string or an appropriate dataset enum.
+        dataset_domain (Union[str, DatasetDomain]): The domain of the dataset.
+        dataset (Union[str, INMETDatasets, UCIDatasets, TCPDDatasets, DummyDatasets]): The specific dataset to read.
 
     Returns:
-        Tuple[pd.DataFrame, List[str]]: A tuple containing the dataset as a pandas DataFrame and a list of variable names.
+        Tuple[pd.DataFrame, List[str]]: A tuple containing the DataFrame and a list of variable names.
 
     Raises:
         ValueError: If the dataset domain or dataset is not recognized.
-
-    Notes:
-        - The dataset is read from a CSV file located in the "datasets/{dataset_domain}" directory.
-        - The DataFrame is filtered to include only the date column and the specified variables.
-        - If the dataset domain is INMET, missing values in the DataFrame are filled using the `fill_na` function.
     """
     if isinstance(dataset_domain, str):
         dataset_domain = get_dataset_domain(dataset_domain)
@@ -225,45 +221,43 @@ def read_dataset(dataset_domain: Union[str, DatasetDomain],
 
 
 def split_train_test(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Splits a DataFrame into training and testing sets based on a predefined training percentage.
+    """Split the DataFrame into training and testing sets based on a predefined training percentage.
 
     Args:
-        df (pd.DataFrame): The input DataFrame to be split.
+        df (pd.DataFrame): The input DataFrame.
 
     Returns:
-        Tuple[pd.DataFrame, pd.DataFrame]: A tuple containing the training DataFrame and the testing DataFrame.
+        Tuple[pd.DataFrame, pd.DataFrame]: A tuple containing the training set and testing set DataFrames.
     """
     train_size = math.floor(df.shape[0] * TRAIN_PERC)
     train = df.iloc[:train_size].reset_index(drop=True)
     test = df.iloc[train_size:].reset_index(drop=True)
-
     return train, test
 
 
 def split_X_y(df: pd.DataFrame) -> Tuple[np.array, np.array]:
-    """
-    Splits the input DataFrame into features (X) and target (y) arrays for time series forecasting.
+    """Split the DataFrame into feature and target arrays for time series forecasting.
+
+    The function drops the DATE_COLUMN (if present) and generates samples based on OBSERVATION_WINDOW and FORECAST_HORIZON.
 
     Args:
-        df (pd.DataFrame): The input DataFrame containing the data to be split.
+        df (pd.DataFrame): The input DataFrame.
 
     Returns:
-        Tuple[np.array, np.array]: A tuple containing two numpy arrays:
-            - X: The feature array with shape (n_samples, OBSERVATION_WINDOW, n_features).
-            - y: The target array with shape (n_samples, n_features).
+        Tuple[np.array, np.array]: A tuple containing:
+            - X (np.array): Feature array with shape (n_samples, OBSERVATION_WINDOW, n_features).
+            - y (np.array): Target array with shape (n_samples, n_features).
 
     Notes:
-        - The function assumes that the DataFrame contains a column named DATE_COLUMN which will be dropped if present.
-        - The OBSERVATION_WINDOW constant defines the number of time steps to include in each sample.
+        - The OBSERVATION_WINDOW constant defines the number of time steps in each input sample.
+        - The FORECAST_HORIZON constant defines the number of future time steps to predict.
     """
     X, y = [], []
     if DATE_COLUMN in df.columns:
         df = df.drop(columns=DATE_COLUMN)
-    for i in range(len(df) - OBSERVATION_WINDOW):
-        X.append(df.iloc[i:i + OBSERVATION_WINDOW])
-        y.append(df.iloc[i + OBSERVATION_WINDOW])
+    for i in range(len(df) - OBSERVATION_WINDOW - FORECAST_HORIZON + 1):
+        X.append(df.iloc[i:i + OBSERVATION_WINDOW].values)
+        y.append(df.iloc[i + OBSERVATION_WINDOW:i + OBSERVATION_WINDOW + FORECAST_HORIZON].values)
     X = np.array(X)
     y = np.array(y)
-
     return X, y

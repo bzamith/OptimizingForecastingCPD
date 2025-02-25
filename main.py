@@ -4,21 +4,12 @@ import random
 import sys
 import time
 from datetime import datetime
-from typing import List
 
 from keras_tuner import RandomSearch
 
 import numpy as np
 
 import pandas as pd
-
-from sklearn.metrics import (
-    mean_absolute_error,
-    mean_absolute_percentage_error,
-    mean_squared_error,
-    r2_score,
-    root_mean_squared_error
-)
 
 import tensorflow as tf
 
@@ -31,6 +22,7 @@ from src.cut_point_detector import CutPointMethod, CutPointModel, get_cut_point_
 from src.dataset import read_dataset, split_X_y, split_train_test
 from src.forecaster import InternalForecaster, TimeSeriesHyperModel
 from src.scaler import Scaler
+from src.utils import get_error_results
 
 tf.get_logger().setLevel('ERROR')
 tf.keras.mixed_precision.set_global_policy("mixed_float16")
@@ -40,92 +32,38 @@ random.seed(SEED)
 tf.random.set_seed(SEED)
 
 
-def _wape(y_true: np.array, y_pred: np.array) -> float:
-    """
-    Compute the Weighted Absolute Percentage Error (WAPE).
-    
-    WAPE = sum(|y_true - y_pred|) / sum(|y_true|)
-    
-    If sum(|y_true|) is zero, returns NaN to avoid division by zero.
-    """
-    y_true, y_pred = np.asarray(y_true, dtype=np.float64), np.asarray(y_pred, dtype=np.float64)
+def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
+        cut_point_model_argv: str, cut_point_method_argv: str) -> None:
+    """Execute the forecasting process with hyperparameter optimization and neural architecture search.
 
-    denominator = np.sum(np.abs(y_true))
-    if denominator == 0:
-        return np.nan  # Avoid division by zero
-
-    return np.sum(np.abs(y_true - y_pred)) / denominator
-
-
-def get_error_results(y_true: pd.DataFrame, y_pred: pd.DataFrame, variables: List[str]) -> dict:
-    """
-    Calculate various error metrics for the given true and predicted values.
-
-    Parameters:
-    y_true (pd.DataFrame): The true values.
-    y_pred (pd.DataFrame): The predicted values.
-    variables (List[str]): List of variable names corresponding to the columns in y_true and y_pred.
-
-    Returns:
-    dict: A dictionary containing the average error metrics (MAPE, MAE, MSE, RMSE, R2, WAPE) 
-          for all variables combined and for each individual variable.
-    """
-    y_true = np.array(y_true, dtype=np.float64)
-    y_pred = np.array(y_pred, dtype=np.float64)
-
-    results = {
-        "Avg_MAPE": mean_absolute_percentage_error(y_true, y_pred),
-        "Avg_MAE": mean_absolute_error(y_true, y_pred),
-        "Avg_MSE": mean_squared_error(y_true, y_pred),
-        "Avg_RMSE": root_mean_squared_error(y_true, y_pred),
-        "Avg_R2": r2_score(y_true, y_pred),
-        "Avg_WAPE": _wape(y_true, y_pred),
-    }
-
-    for i in range(len(variables)):
-        y_true_i = [sublist[i] for sublist in y_true]
-        y_pred_i = [sublist[i] for sublist in y_pred]
-        variable = variables[i]
-        results.update({
-            f"{variable}_MAPE": mean_absolute_percentage_error(y_true_i, y_pred_i),
-            f"{variable}_MAE": mean_absolute_error(y_true_i, y_pred_i),
-            f"{variable}_MSE": mean_squared_error(y_true_i, y_pred_i),
-            f"{variable}_RMSE": root_mean_squared_error(y_true_i, y_pred_i),
-            f"{variable}_R2": r2_score(y_true_i, y_pred_i),
-            f"{variable}_WAPE": _wape(y_true_i, y_pred_i), 
-        })
-    return results
-
-
-def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str, cut_point_model_argv: str, cut_point_method_argv: str) -> None:
-    """
-    Executes the main forecasting process with hyperparameter optimization and neural architecture search.
+    This function performs the following steps:
+        1. Generates an execution ID using the provided arguments and the global seed.
+        2. Extracts the cut point model and method enumerations from the given arguments.
+        3. Reads the dataset and retrieves the list of variables.
+        4. Splits the dataset into training and testing sets.
+        5. Initializes a report dictionary with metadata about the execution.
+        6. Detects the cut point in the training data and records the duration.
+        7. Applies the cut point to filter the training data.
+        8. Fits a scaler on the reduced training set and scales both the training and test data.
+        9. Splits the scaled data into feature (X) and target (y) arrays.
+        10. Runs HPO and NAS using RandomSearch on the reduced training set.
+        11. Retrieves the best model from the tuner.
+        12. Generates forecasts on the scaled test set using the best model.
+        13. Descale the predictions and computes error metrics against the true values.
+        14. Updates the report with tuning duration, error metrics, and model details.
+        15. Writes the report and metadata to a JSON file.
 
     Args:
-        timestamp (str): The timestamp of the execution.
-        dataset_domain_argv (str): The domain of the dataset.
-        dataset_argv (str): The specific dataset to be used.
-        cut_point_model_argv (str): The cut point model to be used.
-        cut_point_method_argv (str): The cut point method to be used.
+        timestamp (str): Timestamp of the execution.
+        dataset_domain_argv (str): Domain of the dataset.
+        dataset_argv (str): Specific dataset to be used.
+        cut_point_model_argv (str): Identifier for the cut point model.
+        cut_point_method_argv (str): Identifier for the cut point method.
 
     Returns:
         None
-
-    The function performs the following steps:
-        1. Generates an execution ID based on the input arguments.
-        2. Extracts the cut point model and method enums.
-        3. Reads the dataset and splits it into train and test sets.
-        4. Initializes a report dictionary with metadata.
-        5. Detects the cut point in the training data.
-        6. Applies the cut point to the scaled training data.
-        7. Scales the data using a scaler.
-        8. Splits the data into features (X) and target (y).
-        9. Runs hyperparameter optimization (HPO) and neural architecture search (NAS) using RandomSearch.
-        10. Retrieves the best model and performs forecasting on the test set.
-        11. Calculates the error between the predicted and actual values.
-        12. Writes the results and metadata to a report file.
     """
-    execution_id = f"{timestamp}_{SEED}_{dataset_domain_argv}_{dataset_argv}_{cut_point_model_argv}_{cut_point_method_argv}"
+    execution_id = f"{timestamp}_{dataset_domain_argv}_{dataset_argv}_{cut_point_model_argv}_{cut_point_method_argv}_{SEED}"
 
     print(f"Extracting cut point model enum ({cut_point_model_argv})")
     cut_point_model = CutPointModel.from_str(cut_point_model_argv)
@@ -190,9 +128,10 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str, cut_point_m
     X_scaled_test, y_scaled_test = split_X_y(scaled_test)
 
     print(f"Started running HPO and NAS for {cut_point_approach}")
+    n_variables = len(variables)
     forecaster_hypermodel = TimeSeriesHyperModel(
         model_type=FORECASTER_MODEL,
-        n_variables=len(variables)
+        n_variables=n_variables
     )
     forecaster_tuner = RandomSearch(
         forecaster_hypermodel,
@@ -225,14 +164,16 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str, cut_point_m
 
     print("Retrieving best model")
     best_forecaster_model.summary()
-    best_forecaster_model = InternalForecaster(best_forecaster_model)
+    best_forecaster_model = InternalForecaster(best_forecaster_model, n_variables)
 
     print("Running forecasting")
     y_scaled_pred = best_forecaster_model.forecast(X_scaled_test)
+    y_scaled_test_flat = y_scaled_test.reshape(-1, n_variables)
+    y_scaled_pred_flat = y_scaled_pred.reshape(-1, n_variables)
 
     print("Calculating error")
-    y_test = scaler.descale(pd.DataFrame(y_scaled_test, columns=variables))
-    y_pred = scaler.descale(pd.DataFrame(y_scaled_pred, columns=variables))
+    y_test = scaler.descale(pd.DataFrame(y_scaled_test_flat, columns=variables))
+    y_pred = scaler.descale(pd.DataFrame(y_scaled_pred_flat, columns=variables))
     error_results = get_error_results(y_test, y_pred, variables)
     print(f"Obtained error results: {error_results}")
 
