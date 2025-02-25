@@ -53,18 +53,18 @@ class UCIDatasets(Enum):
 
     Attributes:
         AIR_QUALITY (tuple): Tuple with "air_quality.csv" and features
-            ["CO(GT)", "NMHC(GT)", "C6H6(GT)", "NOx(GT)", "NO2(GT)", "T", "RH", "AH"].
+            ["C6H6(GT)", "NOx(GT)", "NO2(GT)", "T", "RH", "AH"].
         PRSA_BEIJING (tuple): Tuple with "prsa_beijing.csv" and features
             ["DEWP", "TEMP", "PRES", "Iws", "Is", "Ir"].
         APPLIANCES_ENERGY (tuple): Tuple with "appliances_energy.csv" and features
             ["T_out", "Press_mm_hg", "RH_out", "Windspeed", "Visibility", "Tdewpoint"].
         METRO_TRAFFIC (tuple): Tuple with "metro_traffic.csv" and features
-            ["temp", "rain_1h", "snow_1h", "clouds_all", "traffic_volume"].
+            ["temp", "rain_1h", "clouds_all"].
     """
-    AIR_QUALITY = ("air_quality.csv", ["CO(GT)", "NMHC(GT)", "C6H6(GT)", "NOx(GT)", "NO2(GT)", "T", "RH", "AH"])
+    AIR_QUALITY = ("air_quality.csv", ["C6H6(GT)", "NOx(GT)", "NO2(GT)", "T", "RH", "AH"])
     PRSA_BEIJING = ("prsa_beijing.csv", ["DEWP", "TEMP", "PRES", "Iws", "Is", "Ir"])
     APPLIANCES_ENERGY = ("appliances_energy.csv", ["T_out", "Press_mm_hg", "RH_out", "Windspeed", "Visibility", "Tdewpoint"])
-    METRO_TRAFFIC = ("metro_traffic.csv", ["temp", "rain_1h", "snow_1h", "clouds_all", "traffic_volume"])
+    METRO_TRAFFIC = ("metro_traffic.csv", ["temp", "rain_1h", "clouds_all"])
 
 
 class TCPDDatasets(Enum):
@@ -213,9 +213,7 @@ def read_dataset(
 
     df = pd.read_csv(f"{folder}/{file}")
     df = df[[DATE_COLUMN] + variables]
-
-    if dataset_domain == DatasetDomain.INMET:
-        df = fill_na(df, variables)
+    df = fill_na(df, variables)
 
     return df, variables
 

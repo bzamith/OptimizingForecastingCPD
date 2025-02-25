@@ -12,9 +12,28 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 
 from config.constants import (
-    FORECASTER_LOSS, FORECASTER_OBJECTIVE,
+    EARLY_STOPPING_PATIENCE, FORECASTER_LOSS,
     FORECAST_HORIZON, OBSERVATION_WINDOW
 )
+
+
+def get_early_stopping(is_validation: bool = True) -> EarlyStopping:
+    """
+    Creates and returns an EarlyStopping callback for training models.
+
+    Args:
+        is_validation (bool): Whether it should consider validation loss or not.
+            Default is True.
+
+    Returns:
+        EarlyStopping: An instance of the EarlyStopping callback configured with
+        the specified parameters.
+    """
+    return EarlyStopping(
+        monitor='val_loss' if is_validation else 'loss',
+        patience=EARLY_STOPPING_PATIENCE,
+        restore_best_weights=True
+    )
 
 
 class TimeSeriesHyperModel(HyperModel):
@@ -61,7 +80,6 @@ class TimeSeriesHyperModel(HyperModel):
         model = Sequential()
         model.add(Input(shape=(OBSERVATION_WINDOW, self.n_variables)))
 
-        # Determine the number of layers only once to ensure consistency.
         num_layers = hp.Int('num_layers', 1, 5)
         for i in range(num_layers):
             units = hp.Int(f'units_{i}', 32, 128, step=32)
@@ -102,15 +120,6 @@ class TimeSeriesHyperModel(HyperModel):
         Raises:
             ValueError: If 'validation_split' is not provided in **kwargs.
         """
-        early_stopping = EarlyStopping(
-            monitor=FORECASTER_OBJECTIVE,
-            patience=5,
-            restore_best_weights=True
-        )
-        kwargs['callbacks'] = kwargs.get('callbacks', []) + [early_stopping]
-
-        batch_size = hp.Choice('batch_size', [16, 32, 64, 128])
-
         validation_split = kwargs.pop("validation_split", None)
         if validation_split is None:
             raise ValueError("validation_split must be provided.")
@@ -122,6 +131,8 @@ class TimeSeriesHyperModel(HyperModel):
         X_train = X_train[:num_train]
         y_train = y_train[:num_train]
 
+        batch_size = hp.Choice('batch_size', [16, 32, 64, 128])
+
         train_dataset = tf.data.Dataset.from_tensor_slices((X_train, y_train))
         train_dataset = train_dataset.batch(batch_size, drop_remainder=True).repeat()
         val_dataset = tf.data.Dataset.from_tensor_slices((X_val, y_val))
@@ -129,6 +140,8 @@ class TimeSeriesHyperModel(HyperModel):
 
         steps_per_epoch = num_train // batch_size
         validation_steps = len(X_val) // batch_size
+
+        kwargs['callbacks'] = kwargs.get('callbacks', []) + [get_early_stopping()]
 
         history = model.fit(
             train_dataset,
@@ -153,7 +166,7 @@ class InternalForecaster:
         n_variables (int): The number of variables in the time series data.
     """
 
-    def __init__(self, model: Sequential, n_variables: int):
+    def __init__(self, model: Sequential, n_variables: int, batch_size: int, epochs: int):
         """Initialize the InternalForecaster.
 
         Args:
@@ -162,6 +175,36 @@ class InternalForecaster:
         """
         self.model = model
         self.n_variables = n_variables
+        self.batch_size = batch_size
+        self.epochs = epochs
+
+    def fit(self, X_train: np.array, y_train: np.array, **kwargs):
+        """Fits the model to the training data.
+
+        Args:
+            X_train (np.array): Training input data.
+            y_train (np.array): Training target data.
+            **kwargs: Additional arguments to pass to the model's fit method.
+
+        Returns:
+            dict: A dictionary containing the history of training metrics.
+        """
+        num_train = len(X_train)
+        train_dataset = tf.data.Dataset.from_tensor_slices((X_train, y_train))
+        train_dataset = train_dataset.batch(self.batch_size, drop_remainder=True).repeat()
+
+        steps_per_epoch = num_train // self.batch_size
+
+        kwargs['callbacks'] = kwargs.get('callbacks', []) + [get_early_stopping(False)]
+
+        history = self.model.fit(
+            train_dataset,
+            epochs=self.epochs,
+            steps_per_epoch=steps_per_epoch,
+            **kwargs,
+        )
+
+        return history.history
 
     def forecast(self, X: np.array) -> np.array:
         """Generate forecasts using the trained model.

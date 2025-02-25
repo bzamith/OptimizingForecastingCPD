@@ -14,7 +14,7 @@ import pandas as pd
 import tensorflow as tf
 
 from config.constants import (
-    FORECASTER_MODEL, FORECASTER_OBJECTIVE, NB_TRIALS,
+    FORECASTER_MODEL, NB_TRIALS,
     OBSERVATION_WINDOW, SEED, TRAIN_PERC
 )
 
@@ -48,10 +48,11 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
         9. Splits the scaled data into feature (X) and target (y) arrays.
         10. Runs HPO and NAS using RandomSearch on the reduced training set.
         11. Retrieves the best model from the tuner.
-        12. Generates forecasts on the scaled test set using the best model.
-        13. Descale the predictions and computes error metrics against the true values.
-        14. Updates the report with tuning duration, error metrics, and model details.
-        15. Writes the report and metadata to a JSON file.
+        12. Retrains best model (without validation split).
+        13. Generates forecasts on the scaled test set using the best model.
+        14. Descale the predictions and computes error metrics against the true values.
+        15. Updates the report with tuning and retraining durations, error metrics, and model details.
+        16. Writes the report and metadata to a JSON file.
 
     Args:
         timestamp (str): Timestamp of the execution.
@@ -88,7 +89,6 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
         'cut_point_approach': cut_point_approach,
         'seed': SEED,
         'forecaster_model': FORECASTER_MODEL,
-        'forecaster_objective': FORECASTER_OBJECTIVE,
         'observation_window': OBSERVATION_WINDOW,
         'train_perc': TRAIN_PERC,
         'nb_trials': NB_TRIALS,
@@ -112,7 +112,7 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
     report.update({
         'cut_duration': cut_duration,
         'cut_point': str(cut_point),
-        'cut_point_perc': str(cut_point_perc)
+        'cut_point_perc': cut_point_perc
     })
 
     print("Applying subset to train based on cut point")
@@ -135,7 +135,7 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
     )
     forecaster_tuner = RandomSearch(
         forecaster_hypermodel,
-        objective=FORECASTER_OBJECTIVE,
+        objective='val_loss',
         max_trials=NB_TRIALS,
         executions_per_trial=1,
         directory=f"outputs/tuner/{execution_id}",
@@ -164,7 +164,22 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
 
     print("Retrieving best model")
     best_forecaster_model.summary()
-    best_forecaster_model = InternalForecaster(best_forecaster_model, n_variables)
+    best_forecaster_model = InternalForecaster(
+        best_forecaster_model,
+        len(variables),
+        best_trial.hyperparameters.values['batch_size'],
+        best_trial.hyperparameters.values['epochs'],
+    )
+
+    print("Retraining best model")
+    start_time = time.time()
+    best_forecaster_model.fit(
+        X_reduced_scaled_train,
+        y_reduced_scaled_train,
+        shuffle=False
+    )
+    end_time = time.time()
+    retrain_duration = end_time - start_time
 
     print("Running forecasting")
     y_scaled_pred = best_forecaster_model.forecast(X_scaled_test)
@@ -180,7 +195,8 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
     print("Writing report")
     report.update({
         'tuner_duration': tuner_duration,
-        'total_duration': cut_duration + tuner_duration,
+        'retrain_duration': retrain_duration,
+        'total_duration': cut_duration + tuner_duration + retrain_duration,
         'error_results': error_results,
         'scaled_reduced_train_shape': scaled_reduced_train.shape,
         'best_trial_id': best_trial.trial_id,
