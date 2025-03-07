@@ -14,8 +14,8 @@ import pandas as pd
 import tensorflow as tf
 
 from config.constants import (
-    FORECASTER_MODEL, NB_TRIALS,
-    OBSERVATION_WINDOW, SEED, TRAIN_PERC
+    NB_TRIALS, OBSERVATION_WINDOW,
+    SEED, TRAIN_PERC
 )
 
 from src.cut_point_detector import CutPointMethod, CutPointModel, get_cut_point_detector
@@ -25,7 +25,8 @@ from src.scaler import Scaler
 from src.utils import get_error_results
 
 tf.get_logger().setLevel('ERROR')
-tf.keras.mixed_precision.set_global_policy("mixed_float16")
+tf.config.set_visible_devices([], "GPU")
+tf.config.experimental.set_memory_growth(tf.config.list_physical_devices("GPU")[0], True)
 
 np.random.seed(SEED)
 random.seed(SEED)
@@ -76,6 +77,9 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
     df, variables = read_dataset(dataset_domain_argv, dataset_argv)
     print(f"Variables: {variables}")
 
+    report_path = f"outputs/report/seed={SEED}/{dataset_domain_argv}/{dataset_argv}/{cut_point_model.value}/{cut_point_method.value}/{timestamp}"
+    os.makedirs(report_path, exist_ok=True)
+
     print("Splitting data into train and test")
     train, test = split_train_test(df)
 
@@ -88,7 +92,6 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
         'cut_point_method': cut_point_method.value,
         'cut_point_approach': cut_point_approach,
         'seed': SEED,
-        'forecaster_model': FORECASTER_MODEL,
         'observation_window': OBSERVATION_WINDOW,
         'train_perc': TRAIN_PERC,
         'nb_trials': NB_TRIALS,
@@ -99,6 +102,8 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
         'train_shape': train.shape,
         'test_shape': test.shape,
     }
+    with open(f"{report_path}/report.json", 'w') as file:
+        json.dump(report, file, indent=4)
 
     print(f"Started cut point for {cut_point_approach}")
     start_time = time.time()
@@ -114,6 +119,8 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
         'cut_point': str(cut_point),
         'cut_point_perc': cut_point_perc
     })
+    with open(f"{report_path}/report.json", 'w') as file:
+        json.dump(report, file, indent=4)
 
     print("Applying subset to train based on cut point")
     reduced_train = cut_point_detector.apply_cut_point(train, cut_point)
@@ -130,7 +137,6 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
     print(f"Started running HPO and NAS for {cut_point_approach}")
     n_variables = len(variables)
     forecaster_hypermodel = TimeSeriesHyperModel(
-        model_type=FORECASTER_MODEL,
         n_variables=n_variables
     )
     forecaster_tuner = RandomSearch(
@@ -142,7 +148,6 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
         project_name=f"{cut_point_model.value}_{cut_point_method.value}",
         seed=SEED,
         overwrite=True,
-        distribution_strategy=tf.distribute.MirroredStrategy()
     )
     start_time = time.time()
     forecaster_tuner.search(
@@ -192,7 +197,7 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
     error_results = get_error_results(y_test, y_pred, variables)
     print(f"Obtained error results: {error_results}")
 
-    print("Writing report")
+    print("Writing final report")
     report.update({
         'tuner_duration': tuner_duration,
         'retrain_duration': retrain_duration,
@@ -204,9 +209,6 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
         'best_trial_score': best_trial.score,
         'best_forecaster_model': best_forecaster_model.summary(),
     })
-    report_path = f"outputs/report/seed={SEED}/{dataset_domain_argv}/{dataset_argv}/{cut_point_model.value}/{cut_point_method.value}/{timestamp}"
-
-    os.makedirs(report_path, exist_ok=True)
     with open(f"{report_path}/report.json", 'w') as file:
         json.dump(report, file, indent=4)
 

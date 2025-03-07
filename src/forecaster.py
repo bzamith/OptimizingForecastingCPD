@@ -6,15 +6,13 @@ from keras_tuner import HyperModel
 import numpy as np
 
 import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.layers import Dense, GRU, Input, LSTM, Reshape
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras.layers import BatchNormalization, Dense, Input, LSTM, Reshape
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.regularizers import l2
 
-from config.constants import (
-    EARLY_STOPPING_PATIENCE, FORECASTER_LOSS,
-    FORECAST_HORIZON, OBSERVATION_WINDOW
-)
+from config.constants import FORECASTER_LOSS, FORECAST_HORIZON, OBSERVATION_WINDOW
 
 
 def get_early_stopping(is_validation: bool = True) -> EarlyStopping:
@@ -31,8 +29,19 @@ def get_early_stopping(is_validation: bool = True) -> EarlyStopping:
     """
     return EarlyStopping(
         monitor='val_loss' if is_validation else 'loss',
-        patience=EARLY_STOPPING_PATIENCE,
+        patience=5,
+        min_delta=1e-3,
         restore_best_weights=True
+    )
+
+
+def get_reduce_lr(is_validation: bool = True) -> EarlyStopping:
+    return ReduceLROnPlateau(
+        monitor='val_loss' if is_validation else 'loss',
+        factor=0.5,
+        patience=3,
+        restore_best_weights=True,
+        min_lr=1e-5
     )
 
 
@@ -48,15 +57,13 @@ class TimeSeriesHyperModel(HyperModel):
         model_type (str): The type of recurrent layer to use ('LSTM' or 'GRU'). Defaults to 'LSTM'.
     """
 
-    def __init__(self, n_variables: int, model_type: str = 'LSTM'):
+    def __init__(self, n_variables: int):
         """Initialize the TimeSeriesHyperModel.
 
         Args:
             n_variables (int): Number of variables in the time series data.
-            model_type (str, optional): Type of recurrent layer to use ('LSTM' or 'GRU'). Defaults to 'LSTM'.
         """
         super().__init__()
-        self.model_type = model_type
         self.n_variables = n_variables
 
     def build(self, hp: Any) -> Sequential:
@@ -84,15 +91,14 @@ class TimeSeriesHyperModel(HyperModel):
         for i in range(num_layers):
             units = hp.Int(f'units_{i}', 32, 128, step=32)
             return_seq = True if i < num_layers - 1 else False
-            if self.model_type == 'LSTM':
-                model.add(LSTM(units=units, return_sequences=return_seq))
-            elif self.model_type == 'GRU':
-                model.add(GRU(units=units, return_sequences=return_seq))
+            model.add(LSTM(units=units, return_sequences=return_seq, dropout=0.2, recurrent_dropout=0.2, kernel_regularizer=l2(1e-4)))
+            model.add(BatchNormalization())
         model.add(Dense(self.n_variables * FORECAST_HORIZON))
         model.add(Reshape((FORECAST_HORIZON, self.n_variables)))
         model.compile(
             optimizer=Adam(
-                learning_rate=hp.Choice('learning_rate', [1e-2, 1e-3, 1e-4])
+                learning_rate=hp.Choice('learning_rate', [1e-3, 5e-3, 1e-4, 5e-4]),
+                clipnorm=1.0
             ),
             loss=FORECASTER_LOSS
         )
@@ -126,29 +132,43 @@ class TimeSeriesHyperModel(HyperModel):
 
         num_total = len(X_train)
         num_train = int(num_total * (1 - validation_split))
+
         X_val = X_train[num_train:]
         y_val = y_train[num_train:]
         X_train = X_train[:num_train]
         y_train = y_train[:num_train]
 
-        batch_size = hp.Choice('batch_size', [16, 32, 64, 128])
+        len_X_val = len(X_val)
+        val_min_batch = len_X_val - (len_X_val % 4)
+        if val_min_batch <= 0:
+            raise Exception("Validation batch size must be greater than 0.")
+
+        batch_size = hp.Int('batch_size', min_value=min(32, val_min_batch), max_value=max(32, len_X_val // 4), step=16)
+
+        X_train = tf.convert_to_tensor(X_train, dtype=tf.float32)
+        y_train = tf.convert_to_tensor(y_train, dtype=tf.float32)
+        X_val = tf.convert_to_tensor(X_val, dtype=tf.float32)
+        y_val = tf.convert_to_tensor(y_val, dtype=tf.float32)
 
         train_dataset = tf.data.Dataset.from_tensor_slices((X_train, y_train))
-        train_dataset = train_dataset.batch(batch_size, drop_remainder=True).repeat()
+        train_dataset = train_dataset.batch(batch_size).repeat()
         val_dataset = tf.data.Dataset.from_tensor_slices((X_val, y_val))
         val_dataset = val_dataset.batch(batch_size, drop_remainder=True).repeat()
 
         steps_per_epoch = num_train // batch_size
         validation_steps = len(X_val) // batch_size
 
-        kwargs['callbacks'] = kwargs.get('callbacks', []) + [get_early_stopping()]
+        if validation_steps <= 0:
+            raise Exception("Validation steps must be greater than 0.")
+
+        kwargs['callbacks'] = kwargs.get('callbacks', []) + [get_early_stopping(), get_reduce_lr()]
 
         history = model.fit(
             train_dataset,
-            epochs=hp.Int('epochs', 25, 500),
-            steps_per_epoch=steps_per_epoch,
             validation_data=val_dataset,
             validation_steps=validation_steps,
+            epochs=hp.Int('epochs', min_value=25, max_value=150, step=25),
+            steps_per_epoch=steps_per_epoch,
             **kwargs,
         )
 
@@ -178,7 +198,7 @@ class InternalForecaster:
         self.batch_size = batch_size
         self.epochs = epochs
 
-    def fit(self, X_train: np.array, y_train: np.array, **kwargs):
+    def fit(self, X_train: np.array, y_train: np.array, **kwargs) -> dict:
         """Fits the model to the training data.
 
         Args:
@@ -191,11 +211,11 @@ class InternalForecaster:
         """
         num_train = len(X_train)
         train_dataset = tf.data.Dataset.from_tensor_slices((X_train, y_train))
-        train_dataset = train_dataset.batch(self.batch_size, drop_remainder=True).repeat()
+        train_dataset = train_dataset.batch(self.batch_size).repeat()
 
         steps_per_epoch = num_train // self.batch_size
 
-        kwargs['callbacks'] = kwargs.get('callbacks', []) + [get_early_stopping(False)]
+        kwargs['callbacks'] = kwargs.get('callbacks', []) + [get_early_stopping(False), get_reduce_lr(False)]
 
         history = self.model.fit(
             train_dataset,

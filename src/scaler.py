@@ -6,17 +6,17 @@ from sklearn import preprocessing as pp
 
 
 class Scaler:
-    """A scaler for scaling and descaling data using MinMaxScaler.
+    """A scaler for scaling and descaling data using StandardScaler.
 
-    This class wraps scikit-learn's MinMaxScaler to provide methods for fitting,
+    This class wraps scikit-learn's StandardScaler to provide methods for fitting,
     transforming, and inversely transforming a DataFrame based on a list of variables.
 
     Attributes:
-        scaler (MinMaxScaler): An instance of MinMaxScaler from sklearn.preprocessing.
+        scaler (StandardScaler): An instance of StandardScaler from sklearn.preprocessing.
         variables (List[str]): List of variables to be scaled.
     """
 
-    scaler = pp.MinMaxScaler()
+    scaler = pp.StandardScaler()
 
     def __init__(self, variables: List[str]):
         """Initialize the Scaler.
