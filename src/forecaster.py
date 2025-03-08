@@ -97,14 +97,14 @@ class TimeSeriesHyperModel(HyperModel):
         model.add(Reshape((FORECAST_HORIZON, self.n_variables)))
         model.compile(
             optimizer=Adam(
-                learning_rate=hp.Choice('learning_rate', [1e-3, 5e-3, 1e-4, 5e-4]),
+                learning_rate=hp.Choice('learning_rate', [1e-2, 5e-2, 1e-3, 5e-3, 1e-4, 5e-4]),
                 clipnorm=1.0
             ),
             loss=FORECASTER_LOSS
         )
         return model
 
-    def fit(self, hp: Any, model: Any, X_train: np.array, y_train: np.array, **kwargs) -> dict:
+    def fit(self, hp: Any, model: Any, X_train: np.array, y_train: np.array, validation_data: tuple, **kwargs) -> dict:
         """Train the model on the provided training data with hyperparameter tuning.
 
         This method sets up early stopping based on the forecasting objective and splits the
@@ -117,6 +117,7 @@ class TimeSeriesHyperModel(HyperModel):
             model (Any): The Keras model to be trained.
             X_train (np.array): Training data features.
             y_train (np.array): Training data labels.
+            validation_data (tuple): A tuple containing validation features and labels.
             **kwargs: Additional keyword arguments for model training. Must include a 'validation_split'
                       key that specifies the proportion of data to use for validation.
 
@@ -126,18 +127,9 @@ class TimeSeriesHyperModel(HyperModel):
         Raises:
             ValueError: If 'validation_split' is not provided in **kwargs.
         """
-        validation_split = kwargs.pop("validation_split", None)
-        if validation_split is None:
-            raise ValueError("validation_split must be provided.")
+        X_val, y_val = validation_data
 
-        num_total = len(X_train)
-        num_train = int(num_total * (1 - validation_split))
-
-        X_val = X_train[num_train:]
-        y_val = y_train[num_train:]
-        X_train = X_train[:num_train]
-        y_train = y_train[:num_train]
-
+        len_X_train = len(X_train)
         len_X_val = len(X_val)
         val_min_batch = len_X_val - (len_X_val % 4)
         if val_min_batch <= 0:
@@ -155,8 +147,8 @@ class TimeSeriesHyperModel(HyperModel):
         val_dataset = tf.data.Dataset.from_tensor_slices((X_val, y_val))
         val_dataset = val_dataset.batch(batch_size, drop_remainder=True).repeat()
 
-        steps_per_epoch = num_train // batch_size
-        validation_steps = len(X_val) // batch_size
+        steps_per_epoch = len_X_train // batch_size
+        validation_steps = len_X_val // batch_size
 
         if validation_steps <= 0:
             raise Exception("Validation steps must be greater than 0.")

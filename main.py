@@ -37,24 +37,6 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
         cut_point_model_argv: str, cut_point_method_argv: str) -> None:
     """Execute the forecasting process with hyperparameter optimization and neural architecture search.
 
-    This function performs the following steps:
-        1. Generates an execution ID using the provided arguments and the global seed.
-        2. Extracts the cut point model and method enumerations from the given arguments.
-        3. Reads the dataset and retrieves the list of variables.
-        4. Splits the dataset into training and testing sets.
-        5. Initializes a report dictionary with metadata about the execution.
-        6. Detects the cut point in the training data and records the duration.
-        7. Applies the cut point to filter the training data.
-        8. Fits a scaler on the reduced training set and scales both the training and test data.
-        9. Splits the scaled data into feature (X) and target (y) arrays.
-        10. Runs HPO and NAS using RandomSearch on the reduced training set.
-        11. Retrieves the best model from the tuner.
-        12. Retrains best model (without validation split).
-        13. Generates forecasts on the scaled test set using the best model.
-        14. Descale the predictions and computes error metrics against the true values.
-        15. Updates the report with tuning and retraining durations, error metrics, and model details.
-        16. Writes the report and metadata to a JSON file.
-
     Args:
         timestamp (str): Timestamp of the execution.
         dataset_domain_argv (str): Domain of the dataset.
@@ -65,26 +47,24 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
     Returns:
         None
     """
+    def save_report() -> None:
+        with open(f"{report_path}/report.json", 'w') as file:
+            json.dump(report, file, indent=4)
+
     execution_id = f"{timestamp}_{dataset_domain_argv}_{dataset_argv}_{cut_point_model_argv}_{cut_point_method_argv}_{SEED}"
-
-    print(f"Extracting cut point model enum ({cut_point_model_argv})")
     cut_point_model = CutPointModel.from_str(cut_point_model_argv)
-
-    print(f"Extracting cut point model enum ({cut_point_method_argv})")
     cut_point_method = CutPointMethod.from_str(cut_point_method_argv)
+    cut_point_approach = f"{cut_point_model.value.title()} {cut_point_method.value.title()}"
+    outputs_sub_path = f"seed={SEED}/{dataset_domain_argv}/{dataset_argv}/{cut_point_model.value}/{cut_point_method.value}/{timestamp}"
 
-    print(f"Reading dataset {dataset_argv} from {dataset_domain_argv}")
+    print(f"[Step 1] Reading dataset {dataset_argv} from {dataset_domain_argv}")
     df, variables = read_dataset(dataset_domain_argv, dataset_argv)
     print(f"Variables: {variables}")
-
-    report_path = f"outputs/report/seed={SEED}/{dataset_domain_argv}/{dataset_argv}/{cut_point_model.value}/{cut_point_method.value}/{timestamp}"
+    report_path = f"outputs/report/{outputs_sub_path}"
     os.makedirs(report_path, exist_ok=True)
 
-    print("Splitting data into train and test")
-    train, test = split_train_test(df)
-
-    print("Initializing report")
-    cut_point_approach = f"{cut_point_model.value.title()} {cut_point_method.value.title()}"
+    print("[Step 2] Splitting data into train_val and test")
+    train_val, test = split_train_test(df)
     report = {
         'execution_id': execution_id,
         'timestamp': timestamp,
@@ -99,42 +79,68 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
         'dataset': dataset_argv,
         'variables': variables,
         'dataset_shape': df.shape,
-        'train_shape': train.shape,
+        'train_val_shape': train_val.shape,
         'test_shape': test.shape,
     }
-    with open(f"{report_path}/report.json", 'w') as file:
-        json.dump(report, file, indent=4)
+    save_report()
 
-    print(f"Started cut point for {cut_point_approach}")
+    print(f"[Step 3] Detecting cut point ({cut_point_approach})")
     start_time = time.time()
     cut_point_detector = get_cut_point_detector(cut_point_model, cut_point_method)
-    cut_point, cut_point_perc = cut_point_detector.find_cut_point(train, variables)
+    cut_point, cut_point_perc = cut_point_detector.find_cut_point(train_val, variables)
     end_time = time.time()
-    cut_duration = end_time - start_time
+    detect_cut_point_duration = end_time - start_time
     print(f"Cut point: {cut_point}, Cut point percentage: {cut_point_perc}")
-    print(f"Finished cut point for {cut_point_approach}, duration: {cut_duration}")
-
     report.update({
-        'cut_duration': cut_duration,
+        'detect_cut_point_duration': detect_cut_point_duration,
         'cut_point': str(cut_point),
         'cut_point_perc': cut_point_perc
     })
-    with open(f"{report_path}/report.json", 'w') as file:
-        json.dump(report, file, indent=4)
+    save_report()
 
-    print("Applying subset to train based on cut point")
-    reduced_train = cut_point_detector.apply_cut_point(train, cut_point)
+    print("[Step 4] Reducing train_val based on cut point")
+    start_time = time.time()
+    reduced_train_val = cut_point_detector.apply_cut_point(train_val, cut_point)
+    end_time = time.time()
+    apply_cut_point_duration = end_time - start_time
+    report.update({
+        'apply_cut_point_duration': apply_cut_point_duration,
+        'reduced_train_val.shape': reduced_train_val.shape,
+    })
+    save_report()
 
-    print("Training and applying scaler")
+    print("[Step 5] Splitting train_val into train and val")
+    reduced_train, reduced_val = split_train_test(reduced_train_val)
+    report.update({
+        'reduced_train.shape': reduced_train.shape,
+        'reduced_val.shape': reduced_val.shape,
+    })
+    save_report()
+
+    print("[Step 6] Fitting scaler on train and applying on train and val")
+    start_time = time.time()
     scaler = Scaler(variables)
     scaled_reduced_train = scaler.fit_scale(reduced_train)
-    scaled_test = scaler.scale(test)
+    scaled_reduced_val = scaler.scale(reduced_val)
+    end_time = time.time()
+    fit_apply_scaler_train_val_duration = end_time - start_time
+    report.update({
+        'fit_apply_scaler_train_val_duration': fit_apply_scaler_train_val_duration,
+    })
+    save_report()
 
-    print("Splitting into X and y")
+    print("[Step 7] Splitting train and val into X and y")
     X_reduced_scaled_train, y_reduced_scaled_train = split_X_y(scaled_reduced_train)
-    X_scaled_test, y_scaled_test = split_X_y(scaled_test)
+    X_reduced_scaled_val, y_reduced_scaled_val = split_X_y(scaled_reduced_val)
+    report.update({
+        'X_reduced_scaled_train.shape': X_reduced_scaled_train.shape,
+        'y_reduced_scaled_train.shape': y_reduced_scaled_train.shape,
+        'X_reduced_scaled_val.shape': X_reduced_scaled_val.shape,
+        'y_reduced_scaled_val.shape': y_reduced_scaled_val.shape,
+    })
+    save_report()
 
-    print(f"Started running HPO and NAS for {cut_point_approach}")
+    print("[Step 8] Running HPO and NAS")
     n_variables = len(variables)
     forecaster_hypermodel = TimeSeriesHyperModel(
         n_variables=n_variables
@@ -142,32 +148,35 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
     forecaster_tuner = RandomSearch(
         forecaster_hypermodel,
         objective='val_loss',
-        max_trials=NB_TRIALS,
+        max_trials=3,
         executions_per_trial=1,
-        directory=f"outputs/tuner/{execution_id}",
-        project_name=f"{cut_point_model.value}_{cut_point_method.value}",
+        directory=f"outputs/tuner/{outputs_sub_path}",
+        project_name=execution_id,
         seed=SEED,
         overwrite=True,
+        distribution_strategy=tf.distribute.MirroredStrategy()
     )
     start_time = time.time()
     forecaster_tuner.search(
         X_reduced_scaled_train,
         y_reduced_scaled_train,
-        validation_split=(1 - TRAIN_PERC),
+        validation_data=(X_reduced_scaled_val, y_reduced_scaled_val),
         shuffle=False,
     )
     end_time = time.time()
     tuner_duration = end_time - start_time
+    report.update({
+        'tuner_duration': tuner_duration
+    })
+    save_report()
+
+    print("[Step 9] Retrieving best model")
     best_trial = forecaster_tuner.oracle.get_best_trials(num_trials=1)[0]
     best_forecaster_model = forecaster_tuner.get_best_models(num_models=1)[0]
-    print(f"Finished running HPO and NAS for {cut_point_approach}, duration: {tuner_duration}")
-
     print(f"Trial ID: {best_trial.trial_id}")
     print(f"Hyperparameters: {best_trial.hyperparameters.values}")
     print(f"Score: {best_trial.score}")
     print("-" * 40)
-
-    print("Retrieving best model")
     best_forecaster_model.summary()
     best_forecaster_model = InternalForecaster(
         best_forecaster_model,
@@ -175,42 +184,83 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
         best_trial.hyperparameters.values['batch_size'],
         best_trial.hyperparameters.values['epochs'],
     )
-
-    print("Retraining best model")
-    start_time = time.time()
-    best_forecaster_model.fit(
-        X_reduced_scaled_train,
-        y_reduced_scaled_train,
-        shuffle=False
-    )
-    end_time = time.time()
-    retrain_duration = end_time - start_time
-
-    print("Running forecasting")
-    y_scaled_pred = best_forecaster_model.forecast(X_scaled_test)
-    y_scaled_test_flat = y_scaled_test.reshape(-1, n_variables)
-    y_scaled_pred_flat = y_scaled_pred.reshape(-1, n_variables)
-
-    print("Calculating error")
-    y_test = scaler.descale(pd.DataFrame(y_scaled_test_flat, columns=variables))
-    y_pred = scaler.descale(pd.DataFrame(y_scaled_pred_flat, columns=variables))
-    error_results = get_error_results(y_test, y_pred, variables)
-    print(f"Obtained error results: {error_results}")
-
-    print("Writing final report")
     report.update({
-        'tuner_duration': tuner_duration,
-        'retrain_duration': retrain_duration,
-        'total_duration': cut_duration + tuner_duration + retrain_duration,
-        'error_results': error_results,
-        'scaled_reduced_train_shape': scaled_reduced_train.shape,
         'best_trial_id': best_trial.trial_id,
         'best_trial_hyperparameters': best_trial.hyperparameters.values,
         'best_trial_score': best_trial.score,
         'best_forecaster_model': best_forecaster_model.summary(),
     })
-    with open(f"{report_path}/report.json", 'w') as file:
-        json.dump(report, file, indent=4)
+    save_report()
+
+    print("[Step 10] Fitting scaler on train_val and applying on train_val and test")
+    start_time = time.time()
+    scaler = Scaler(variables)
+    scaled_reduced_train_val = scaler.fit_scale(reduced_train_val)
+    scaled_test = scaler.scale(test)
+    end_time = time.time()
+    fit_apply_scaler_train_val_test_duration = end_time - start_time
+    report.update({
+        'fit_apply_scaler_train_val_test_duration': fit_apply_scaler_train_val_test_duration,
+    })
+    save_report()
+
+    print("[Step 11] Splitting train_val and test into X and y")
+    X_reduced_scaled_train_val, y_reduced_scaled_train_val = split_X_y(scaled_reduced_train_val)
+    X_scaled_test, y_scaled_test = split_X_y(scaled_test)
+    report.update({
+        'X_reduced_scaled_train_val.shape': X_reduced_scaled_train_val.shape,
+        'y_reduced_scaled_train_val.shape': y_reduced_scaled_train_val.shape,
+        'X_scaled_test.shape': X_scaled_test.shape,
+        'y_scaled_test.shape': y_scaled_test.shape,
+    })
+    save_report()
+
+    print("[Step 12] Retraining best model")
+    start_time = time.time()
+    best_forecaster_model.fit(
+        X_reduced_scaled_train_val,
+        y_reduced_scaled_train_val,
+        shuffle=False
+    )
+    end_time = time.time()
+    retrain_duration = end_time - start_time
+    report.update({
+        'retrain_duration': retrain_duration,
+    })
+    save_report()
+
+    print("[Step 13] Forecasting for test")
+    start_time = time.time()
+    y_scaled_pred = best_forecaster_model.forecast(X_scaled_test)
+    y_scaled_test_flat = y_scaled_test.reshape(-1, n_variables)
+    y_scaled_pred_flat = y_scaled_pred.reshape(-1, n_variables)
+    end_time = time.time()
+    forecasting_test_duration = end_time - start_time
+    report.update({
+        'forecasting_test_duration': forecasting_test_duration,
+    })
+    save_report()
+
+    print("[Step 14] Descaling data")
+    start_time = time.time()
+    y_test = scaler.descale(pd.DataFrame(y_scaled_test_flat, columns=variables))
+    y_pred = scaler.descale(pd.DataFrame(y_scaled_pred_flat, columns=variables))
+    end_time = time.time()
+    descaling_duration = end_time - start_time
+    report.update({
+        'descaling_duration': descaling_duration,
+    })
+    save_report()
+
+    print("[Step 15] Calculating evaluation metrics")
+    total_duration = sum(value for key, value in report.items() if key.endswith('_duration'))
+    error_results = get_error_results(y_test, y_pred, variables)
+    print(f"Obtained error results: {error_results}")
+    report.update({
+        'total_duration': total_duration,
+        'error_results': error_results,
+    })
+    save_report()
 
     print("Finished execution")
 

@@ -53,16 +53,16 @@ class UCIDatasets(Enum):
 
     Attributes:
         AIR_QUALITY (tuple): Tuple with "air_quality.csv" and features
-            ["C6H6(GT)", "NOx(GT)", "NO2(GT)", "T", "RH", "AH"].
+            ["CO(GT)", "C6H6(GT)", "NOx(GT)", "NO2(GT)", "T", "RH"].
         PRSA_BEIJING (tuple): Tuple with "prsa_beijing.csv" and features
-            ["DEWP", "TEMP", "PRES", "Iws", "Is", "Ir"].
+            ["pm2_5", "DEWP", "TEMP", "PRES", "Iws", "Is", "Ir"].
         APPLIANCES_ENERGY (tuple): Tuple with "appliances_energy.csv" and features
             ["T_out", "Press_mm_hg", "RH_out", "Windspeed", "Visibility", "Tdewpoint"].
         METRO_TRAFFIC (tuple): Tuple with "metro_traffic.csv" and features
             ["temp", "rain_1h", "clouds_all"].
     """
-    AIR_QUALITY = ("air_quality.csv", ["C6H6(GT)", "NOx(GT)", "NO2(GT)", "T", "RH", "AH"])
-    PRSA_BEIJING = ("prsa_beijing.csv", ["DEWP", "TEMP", "PRES", "Iws", "Is", "Ir"])
+    AIR_QUALITY = ("air_quality.csv", ["CO(GT)", "C6H6(GT)", "NOx(GT)", "NO2(GT)", "T", "RH"])
+    PRSA_BEIJING = ("prsa_beijing.csv", ["pm2_5", "DEWP", "TEMP", "PRES", "Iws", "Is", "Ir"])
     APPLIANCES_ENERGY = ("appliances_energy.csv", ["T_out", "Press_mm_hg", "RH_out", "Windspeed", "Visibility", "Tdewpoint"])
     METRO_TRAFFIC = ("metro_traffic.csv", ["temp", "rain_1h", "clouds_all"])
 
