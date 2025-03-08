@@ -148,7 +148,7 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
     forecaster_tuner = RandomSearch(
         forecaster_hypermodel,
         objective='val_loss',
-        max_trials=3,
+        max_trials=NB_TRIALS,
         executions_per_trial=1,
         directory=f"outputs/tuner/{outputs_sub_path}",
         project_name=execution_id,
