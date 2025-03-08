@@ -18,7 +18,7 @@ from config.constants import (
     SEED, TRAIN_PERC
 )
 
-from src.cut_point_detector import CutPointMethod, CutPointModel, get_cut_point_detector
+from src.change_point_detector import ChangePointCostFunction, ChangePointMethod, get_change_point_detector
 from src.dataset import read_dataset, split_X_y, split_train_test
 from src.forecaster import InternalForecaster, TimeSeriesHyperModel
 from src.scaler import Scaler
@@ -34,15 +34,15 @@ tf.random.set_seed(SEED)
 
 
 def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
-        cut_point_model_argv: str, cut_point_method_argv: str) -> None:
+        change_point_method_argv: str, change_point_cost_function_argv: str) -> None:
     """Execute the forecasting process with hyperparameter optimization and neural architecture search.
 
     Args:
         timestamp (str): Timestamp of the execution.
         dataset_domain_argv (str): Domain of the dataset.
         dataset_argv (str): Specific dataset to be used.
-        cut_point_model_argv (str): Identifier for the cut point model.
-        cut_point_method_argv (str): Identifier for the cut point method.
+        change_point_method_argv (str): Identifier for the change point model.
+        change_point_cost_function_argv (str): Identifier for the change point method.
 
     Returns:
         None
@@ -51,11 +51,11 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
         with open(f"{report_path}/report.json", 'w') as file:
             json.dump(report, file, indent=4)
 
-    execution_id = f"{timestamp}_{dataset_domain_argv}_{dataset_argv}_{cut_point_model_argv}_{cut_point_method_argv}_{SEED}"
-    cut_point_model = CutPointModel.from_str(cut_point_model_argv)
-    cut_point_method = CutPointMethod.from_str(cut_point_method_argv)
-    cut_point_approach = f"{cut_point_model.value.title()} {cut_point_method.value.title()}"
-    outputs_sub_path = f"seed={SEED}/{dataset_domain_argv}/{dataset_argv}/{cut_point_model.value}/{cut_point_method.value}/{timestamp}"
+    execution_id = f"{timestamp}_{dataset_domain_argv}_{dataset_argv}_{change_point_method_argv}_{change_point_cost_function_argv}_{SEED}"
+    change_point_method = ChangePointMethod.from_str(change_point_method_argv)
+    change_point_cost_function = ChangePointCostFunction.from_str(change_point_cost_function_argv)
+    change_point_approach = f"{change_point_method.value.title()} {change_point_cost_function.value.title()}"
+    outputs_sub_path = f"seed={SEED}/{dataset_domain_argv}/{dataset_argv}/{change_point_method.value}/{change_point_cost_function.value}/{timestamp}"
 
     print(f"[Step 1] Reading dataset {dataset_argv} from {dataset_domain_argv}")
     df, variables = read_dataset(dataset_domain_argv, dataset_argv)
@@ -68,9 +68,9 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
     report = {
         'execution_id': execution_id,
         'timestamp': timestamp,
-        'cut_point_model': cut_point_model.value,
-        'cut_point_method': cut_point_method.value,
-        'cut_point_approach': cut_point_approach,
+        'change_point_method': change_point_method.value,
+        'change_point_cost_function': change_point_cost_function.value,
+        'change_point_approach': change_point_approach,
         'seed': SEED,
         'observation_window': OBSERVATION_WINDOW,
         'train_perc': TRAIN_PERC,
@@ -84,27 +84,27 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
     }
     save_report()
 
-    print(f"[Step 3] Detecting cut point ({cut_point_approach})")
+    print(f"[Step 3] Detecting change point ({change_point_approach})")
     start_time = time.time()
-    cut_point_detector = get_cut_point_detector(cut_point_model, cut_point_method)
-    cut_point, cut_point_perc = cut_point_detector.find_cut_point(train_val, variables)
+    change_point_detector = get_change_point_detector(change_point_method, change_point_cost_function)
+    change_point, change_point_perc = change_point_detector.find_change_point(train_val, variables)
     end_time = time.time()
-    detect_cut_point_duration = end_time - start_time
-    print(f"Cut point: {cut_point}, Cut point percentage: {cut_point_perc}")
+    detect_change_point_duration = end_time - start_time
+    print(f"Change point: {change_point}, Change point percentage: {change_point_perc}")
     report.update({
-        'detect_cut_point_duration': detect_cut_point_duration,
-        'cut_point': str(cut_point),
-        'cut_point_perc': cut_point_perc
+        'detect_change_point_duration': detect_change_point_duration,
+        'change_point': str(change_point),
+        'change_point_perc': change_point_perc
     })
     save_report()
 
-    print("[Step 4] Reducing train_val based on cut point")
+    print("[Step 4] Reducing train_val based on change point")
     start_time = time.time()
-    reduced_train_val = cut_point_detector.apply_cut_point(train_val, cut_point)
+    reduced_train_val = change_point_detector.apply_change_point(train_val, change_point)
     end_time = time.time()
-    apply_cut_point_duration = end_time - start_time
+    apply_change_point_duration = end_time - start_time
     report.update({
-        'apply_cut_point_duration': apply_cut_point_duration,
+        'apply_change_point_duration': apply_change_point_duration,
         'reduced_train_val.shape': reduced_train_val.shape,
     })
     save_report()
@@ -268,9 +268,9 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
 if __name__ == "__main__":
     dataset_domain_argv = sys.argv[1]
     dataset_argv = sys.argv[2]
-    cut_point_model_argv = sys.argv[3]
-    cut_point_method_argv = sys.argv[4]
+    change_point_method_argv = sys.argv[3]
+    change_point_cost_function_argv = sys.argv[4]
 
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
-    run(timestamp, dataset_domain_argv, dataset_argv, cut_point_model_argv, cut_point_method_argv)
+    run(timestamp, dataset_domain_argv, dataset_argv, change_point_method_argv, change_point_cost_function_argv)
