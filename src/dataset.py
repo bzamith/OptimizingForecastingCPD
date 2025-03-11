@@ -178,8 +178,14 @@ def fill_na(df: pd.DataFrame, variables: List[str]) -> pd.DataFrame:
     Returns:
         pd.DataFrame: The DataFrame with missing values filled in the specified columns.
     """
+    first_valid_index = 0
     for variable in variables:
         df[variable] = df[variable].interpolate(method='linear')
+        first_valid_index = max(first_valid_index, df[variable].first_valid_index())
+    
+    if first_valid_index > 0:
+        df = df.iloc[first_valid_index:].reset_index(drop=True)
+    
     return df
 
 

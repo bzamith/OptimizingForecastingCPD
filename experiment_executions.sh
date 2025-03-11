@@ -5,7 +5,7 @@ CONFIG_FILE="config/constants.py"
 DATASETS=("UCI AIR_QUALITY" "UCI APPLIANCES_ENERGY" "UCI METRO_TRAFFIC" "UCI PRSA_BEIJING")
 SEEDS=(0 42 1001)
 METHODS=("Window" "Bin_Seg" "Bottom_Up")
-METRICS=("L1" "L2" "Normal" "RBF" "Linear" "Rank" "AR")
+COST_FUNCTIONS=("L1" "L2" "Normal" "RBF" "Linear" "Rank" "AR")
 
 # Ensure config file exists
 if [[ ! -f "$CONFIG_FILE" ]]; then
@@ -21,10 +21,10 @@ run_experiments() {
   # Update SEED value in config file
   sed -i '' "1s/.*/SEED = $seed/" "$CONFIG_FILE"
 
-  # Run experiments for each method and metric
+  # Run experiments for each method and cost function
   for method in "${METHODS[@]}"; do
-    for metric in "${METRICS[@]}"; do
-      nice -n -10 ./run.sh execute "$dataset" "$method" "$metric"
+    for cost_function in "${COST_FUNCTIONS[@]}"; do
+      nice -n -10 ./run.sh execute "$dataset" "$method" "$cost_function"
     done
   done
 
