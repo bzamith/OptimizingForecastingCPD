@@ -31,6 +31,7 @@ class ChangePointCostFunction(Enum):
     FC6 = "Fixed_Cut_0.6"
     FC7 = "Fixed_Cut_0.7"
     FC8 = "Fixed_Cut_0.8"
+    FC9 = "Fixed_Cut_0.9"
 
     @classmethod
     def from_str(cls, cost_function: str):
