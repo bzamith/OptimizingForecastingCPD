@@ -29,8 +29,8 @@ def get_early_stopping(is_validation: bool = True) -> EarlyStopping:
     """
     return EarlyStopping(
         monitor='val_loss' if is_validation else 'loss',
-        patience=5,
-        min_delta=1e-3,
+        patience=10,
+        min_delta=1e-2,
         restore_best_weights=True
     )
 
@@ -39,7 +39,7 @@ def get_reduce_lr(is_validation: bool = True) -> EarlyStopping:
     return ReduceLROnPlateau(
         monitor='val_loss' if is_validation else 'loss',
         factor=0.5,
-        patience=3,
+        patience=5,
         restore_best_weights=True,
         min_lr=1e-5
     )

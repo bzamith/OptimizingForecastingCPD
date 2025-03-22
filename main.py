@@ -86,13 +86,18 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
 
     print(f"[Step 3] Detecting change point ({change_point_approach})")
     start_time = time.time()
+    start_time_perf = time.perf_counter()
+    start_time_process = time.process_time()
     change_point_detector = get_change_point_detector(change_point_method, change_point_cost_function)
     change_point, change_point_perc = change_point_detector.find_change_point(train_val, variables)
     end_time = time.time()
-    detect_change_point_duration = end_time - start_time
+    end_time_perf = time.perf_counter()
+    end_time_process = time.process_time()
     print(f"Change point: {change_point}, Change point percentage: {change_point_perc}")
     report.update({
-        'detect_change_point_duration': detect_change_point_duration,
+        'detect_change_point_time_duration': end_time - start_time,
+        'detect_change_point_perf_duration': end_time_perf - start_time_perf,
+        'detect_change_point_process_duration': end_time_process - start_time_process,
         'change_point': str(change_point),
         'change_point_perc': change_point_perc
     })
@@ -100,11 +105,16 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
 
     print("[Step 4] Reducing train_val based on change point")
     start_time = time.time()
+    start_time_perf = time.perf_counter()
+    start_time_process = time.process_time()
     reduced_train_val = change_point_detector.apply_change_point(train_val, change_point)
     end_time = time.time()
-    apply_change_point_duration = end_time - start_time
+    end_time_perf = time.perf_counter()
+    end_time_process = time.process_time()
     report.update({
-        'apply_change_point_duration': apply_change_point_duration,
+        'apply_change_point_time_duration': end_time - start_time,
+        'apply_change_point_perf_duration': end_time_perf - start_time_perf,
+        'apply_change_point_process_duration': end_time_process - start_time_process,
         'reduced_train_val.shape': reduced_train_val.shape,
     })
     save_report()
@@ -119,13 +129,18 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
 
     print("[Step 6] Fitting scaler on train and applying on train and val")
     start_time = time.time()
+    start_time_perf = time.perf_counter()
+    start_time_process = time.process_time()
     scaler = Scaler(variables)
     scaled_reduced_train = scaler.fit_scale(reduced_train)
     scaled_reduced_val = scaler.scale(reduced_val)
     end_time = time.time()
-    fit_apply_scaler_train_val_duration = end_time - start_time
+    end_time_perf = time.perf_counter()
+    end_time_process = time.process_time()
     report.update({
-        'fit_apply_scaler_train_val_duration': fit_apply_scaler_train_val_duration,
+        'fit_apply_scaler_train_val_time_duration': end_time - start_time,
+        'fit_apply_scaler_train_val_perf_duration': end_time_perf - start_time_perf,
+        'fit_apply_scaler_train_val_process_duration': end_time_process - start_time_process,
     })
     save_report()
 
@@ -150,13 +165,15 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
         objective='val_loss',
         max_trials=NB_TRIALS,
         executions_per_trial=1,
-        directory=f"outputs/tuner/{outputs_sub_path}",
-        project_name=execution_id,
+        directory=f"outputs/tuner/",
+        project_name="tmp",
         seed=SEED,
         overwrite=True,
         distribution_strategy=tf.distribute.MirroredStrategy()
     )
     start_time = time.time()
+    start_time_perf = time.perf_counter()
+    start_time_process = time.process_time()
     forecaster_tuner.search(
         X_reduced_scaled_train,
         y_reduced_scaled_train,
@@ -164,9 +181,12 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
         shuffle=False,
     )
     end_time = time.time()
-    tuner_duration = end_time - start_time
+    end_time_perf = time.perf_counter()
+    end_time_process = time.process_time()
     report.update({
-        'tuner_duration': tuner_duration
+        'tuner_time_duration': end_time - start_time,
+        'tuner_perf_duration': end_time_perf - start_time_perf,
+        'tuner_process_duration': end_time_process - start_time_process,
     })
     save_report()
 
@@ -194,13 +214,18 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
 
     print("[Step 10] Fitting scaler on train_val and applying on train_val and test")
     start_time = time.time()
+    start_time_perf = time.perf_counter()
+    start_time_process = time.process_time()
     scaler = Scaler(variables)
     scaled_reduced_train_val = scaler.fit_scale(reduced_train_val)
     scaled_test = scaler.scale(test)
     end_time = time.time()
-    fit_apply_scaler_train_val_test_duration = end_time - start_time
+    end_time_perf = time.perf_counter()
+    end_time_process = time.process_time()
     report.update({
-        'fit_apply_scaler_train_val_test_duration': fit_apply_scaler_train_val_test_duration,
+        'fit_apply_scaler_train_val_test_time_duration': end_time - start_time,
+        'fit_apply_scaler_train_val_test_perf_duration': end_time_perf - start_time_perf,
+        'fit_apply_scaler_train_val_test_process_duration': end_time_process - start_time_process,
     })
     save_report()
 
@@ -217,47 +242,63 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
 
     print("[Step 12] Retraining best model")
     start_time = time.time()
+    start_time_perf = time.perf_counter()
+    start_time_process = time.process_time()
     best_forecaster_model.fit(
         X_reduced_scaled_train_val,
         y_reduced_scaled_train_val,
         shuffle=False
     )
     end_time = time.time()
-    retrain_duration = end_time - start_time
+    end_time_perf = time.perf_counter()
+    end_time_process = time.process_time()
     report.update({
-        'retrain_duration': retrain_duration,
+        'retrain_time_duration': end_time - start_time,
+        'retrain_perf_duration': end_time_perf - start_time_perf,
+        'retrain_process_duration': end_time_process - start_time_process,
     })
     save_report()
 
     print("[Step 13] Forecasting for test")
     start_time = time.time()
+    start_time_perf = time.perf_counter()
+    start_time_process = time.process_time()
     y_scaled_pred = best_forecaster_model.forecast(X_scaled_test)
     y_scaled_test_flat = y_scaled_test.reshape(-1, n_variables)
     y_scaled_pred_flat = y_scaled_pred.reshape(-1, n_variables)
     end_time = time.time()
-    forecasting_test_duration = end_time - start_time
+    end_time_perf = time.perf_counter()
+    end_time_process = time.process_time()
     report.update({
-        'forecasting_test_duration': forecasting_test_duration,
+        'forecasting_test_time_duration': end_time - start_time,
+        'forecasting_test_perf_duration': end_time_perf - start_time_perf,
+        'forecasting_test_process_duration': end_time_process - start_time_process,
     })
     save_report()
 
     print("[Step 14] Descaling data")
     start_time = time.time()
+    start_time_perf = time.perf_counter()
+    start_time_process = time.process_time()
     y_test = scaler.descale(pd.DataFrame(y_scaled_test_flat, columns=variables))
     y_pred = scaler.descale(pd.DataFrame(y_scaled_pred_flat, columns=variables))
     end_time = time.time()
-    descaling_duration = end_time - start_time
+    end_time_perf = time.perf_counter()
+    end_time_process = time.process_time()
     report.update({
-        'descaling_duration': descaling_duration,
+        'descaling_time_duration': end_time - start_time,
+        'descaling_perf_duration': end_time_perf - start_time_perf,
+        'descaling_process_duration': end_time_process - start_time_process,
     })
     save_report()
 
     print("[Step 15] Calculating evaluation metrics")
-    total_duration = sum(value for key, value in report.items() if key.endswith('_duration'))
     error_results = get_error_results(y_test, y_pred, variables)
     print(f"Obtained error results: {error_results}")
     report.update({
-        'total_duration': total_duration,
+        'total_time_duration': sum(value for key, value in report.items() if key.endswith('_time_duration')),
+        'total_perf_duration': sum(value for key, value in report.items() if key.endswith('_perf_duration')),
+        'total_process_duration': sum(value for key, value in report.items() if key.endswith('_process_duration')),
         'error_results': error_results,
     })
     save_report()

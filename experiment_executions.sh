@@ -3,11 +3,11 @@
 # Constants
 CONFIG_FILE="config/constants.py"
 RUN_SCRIPT="./run.sh"
-SEEDS=(0 42 52 713 1001)
+SEEDS=(0 42 52 101 214 565 600 713 999 1001)
 DATASETS=("UCI AIR_QUALITY" "UCI APPLIANCES_ENERGY" "UCI METRO_TRAFFIC" "UCI PRSA_BEIJING")
 METHODS=("Window" "Bin_Seg" "Bottom_Up")
-COST_FUNCTIONS=("L1" "L2" "Normal" "RBF" "Linear" "Rank" "AR")
-FIXED_CUTS=(0.0 0.1 0.2 0.3 0.4 0.6 0.7 0.8 0.9)
+COST_FUNCTIONS=("L1" "L2" "Normal" "Linear" "Rank") # "RBF" "AR"
+FIXED_CUTS=(0.0) # 0.1 0.2 0.3 0.4 0.6 0.7 0.8 0.9)
 
 
 # Ensure config file exists
@@ -24,8 +24,8 @@ fi
 
 # Function to execute commands
 run_experiments() {
-  local dataset="$1"
-  local seed="$2"
+  local seed="$1"
+  local dataset="$2"
 
   # Update SEED value in config file
   sed -i '' "1s/.*/SEED = $seed/" "$CONFIG_FILE"
@@ -46,8 +46,8 @@ run_experiments() {
 }
 
 # Run experiments for each dataset and seed
-for dataset in "${DATASETS[@]}"; do
-  for seed in "${SEEDS[@]}"; do
-    run_experiments "$dataset" "$seed"
+for seed in "${SEEDS[@]}"; do
+  for dataset in "${DATASETS[@]}"; do
+    run_experiments "$seed" "$dataset"
   done
 done

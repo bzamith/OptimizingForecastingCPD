@@ -1,9 +1,9 @@
-SEED = 713
+SEED = 0
 
 DATE_COLUMN = 'ds'
 
 TRAIN_PERC = 0.8
-NB_TRIALS = 15
+NB_TRIALS = 30
 
 FORECASTER_LOSS = 'mean_squared_error'
 FORECAST_HORIZON = 7
