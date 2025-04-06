@@ -1,0 +1,172 @@
+{
+    "execution_id": "2025-03-22_23-44-24_UCI_AIR_QUALITY_Bottom_Up_Rank_42",
+    "timestamp": "2025-03-22_23-44-24",
+    "change_point_method": "Bottom_Up",
+    "change_point_cost_function": "Rank",
+    "change_point_approach": "Bottom_Up Rank",
+    "seed": 42,
+    "observation_window": 14,
+    "train_perc": 0.8,
+    "nb_trials": 30,
+    "dataset_domain": "UCI",
+    "dataset": "AIR_QUALITY",
+    "variables": [
+        "CO(GT)",
+        "C6H6(GT)",
+        "NOx(GT)",
+        "NO2(GT)",
+        "T",
+        "RH"
+    ],
+    "dataset_shape": [
+        9357,
+        7
+    ],
+    "train_val_shape": [
+        7485,
+        7
+    ],
+    "test_shape": [
+        1872,
+        7
+    ],
+    "detect_change_point_time_duration": 0.05966806411743164,
+    "detect_change_point_perf_duration": 0.0596677080000001,
+    "detect_change_point_process_duration": 0.059661000000000186,
+    "change_point": "4205",
+    "change_point_perc": 56.179024716098866,
+    "apply_change_point_time_duration": 7.724761962890625e-05,
+    "apply_change_point_perf_duration": 7.737500000004616e-05,
+    "apply_change_point_process_duration": 7.700000000010476e-05,
+    "reduced_train_val.shape": [
+        3280,
+        7
+    ],
+    "reduced_train.shape": [
+        2624,
+        7
+    ],
+    "reduced_val.shape": [
+        656,
+        7
+    ],
+    "fit_apply_scaler_train_val_time_duration": 0.0019369125366210938,
+    "fit_apply_scaler_train_val_perf_duration": 0.0019376250000000539,
+    "fit_apply_scaler_train_val_process_duration": 0.0019379999999999953,
+    "X_reduced_scaled_train.shape": [
+        2604,
+        14,
+        6
+    ],
+    "y_reduced_scaled_train.shape": [
+        2604,
+        7,
+        6
+    ],
+    "X_reduced_scaled_val.shape": [
+        636,
+        14,
+        6
+    ],
+    "y_reduced_scaled_val.shape": [
+        636,
+        7,
+        6
+    ],
+    "tuner_time_duration": 604.1916129589081,
+    "tuner_perf_duration": 604.19308575,
+    "tuner_process_duration": 1763.098313,
+    "best_trial_id": "13",
+    "best_trial_hyperparameters": {
+        "num_layers": 1,
+        "units_0": 96,
+        "learning_rate": 0.001,
+        "units_1": 32,
+        "units_2": 128,
+        "units_3": 96,
+        "batch_size": 144,
+        "epochs": 150,
+        "units_4": 32
+    },
+    "best_trial_score": 0.5885999311530401,
+    "best_forecaster_model": "Model: \"sequential\"\n\u250f\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2533\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2533\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2513\n\u2503 Layer (type)                         \u2503 Output Shape                \u2503         Param # \u2503\n\u2521\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2547\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2547\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2529\n\u2502 lstm (LSTM)                          \u2502 (None, 96)                  \u2502          39,552 \u2502\n\u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524\n\u2502 batch_normalization                  \u2502 (None, 96)                  \u2502             384 \u2502\n\u2502 (BatchNormalization)                 \u2502                             \u2502                 \u2502\n\u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524\n\u2502 dense (Dense)                        \u2502 (None, 42)                  \u2502           4,074 \u2502\n\u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524\n\u2502 reshape (Reshape)                    \u2502 (None, 7, 6)                \u2502               0 \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n Total params: 44,010 (171.91 KB)\n Trainable params: 43,818 (171.16 KB)\n Non-trainable params: 192 (768.00 B)\n\n",
+    "fit_apply_scaler_train_val_test_time_duration": 0.002465963363647461,
+    "fit_apply_scaler_train_val_test_perf_duration": 0.0024657500000557775,
+    "fit_apply_scaler_train_val_test_process_duration": 0.002449999999953434,
+    "X_reduced_scaled_train_val.shape": [
+        3260,
+        14,
+        6
+    ],
+    "y_reduced_scaled_train_val.shape": [
+        3260,
+        7,
+        6
+    ],
+    "X_scaled_test.shape": [
+        1852,
+        14,
+        6
+    ],
+    "y_scaled_test.shape": [
+        1852,
+        7,
+        6
+    ],
+    "retrain_time_duration": 4.55757999420166,
+    "retrain_perf_duration": 4.557591582999976,
+    "retrain_process_duration": 13.151740000000018,
+    "forecasting_test_time_duration": 0.33634305000305176,
+    "forecasting_test_perf_duration": 0.3363446669999348,
+    "forecasting_test_process_duration": 0.42448000000013053,
+    "descaling_time_duration": 0.0036301612854003906,
+    "descaling_perf_duration": 0.0036307089999354503,
+    "descaling_process_duration": 0.003617999999960375,
+    "total_time_duration": 609.1533143520355,
+    "total_perf_duration": 609.154801167,
+    "total_process_duration": 1776.742277,
+    "error_results": {
+        "Avg_MAPE": 4019417099455.934,
+        "Avg_MAE": 29.6427940778765,
+        "Avg_MSE": 5031.684516296727,
+        "Avg_RMSE": 38.97055008931461,
+        "Avg_R2": 0.3675562261108878,
+        "Avg_WAPE": 0.34631514392985663,
+        "CO(GT)_MAPE": 0.9992446044209626,
+        "CO(GT)_MAE": 0.8431279984022134,
+        "CO(GT)_MSE": 1.23913852425719,
+        "CO(GT)_RMSE": 1.1131659913315668,
+        "CO(GT)_R2": 0.3545197926675837,
+        "CO(GT)_WAPE": 0.444114888447706,
+        "C6H6(GT)_MAPE": 1.3834583577833024,
+        "C6H6(GT)_MAE": 4.2600654751358835,
+        "C6H6(GT)_MSE": 29.604196543114398,
+        "C6H6(GT)_RMSE": 5.4409738598080395,
+        "C6H6(GT)_R2": 0.2924214215255456,
+        "C6H6(GT)_WAPE": 0.5324396477781139,
+        "NOx(GT)_MAPE": 0.6933075831212133,
+        "NOx(GT)_MAE": 127.53397881647776,
+        "NOx(GT)_MSE": 28029.9019058235,
+        "NOx(GT)_RMSE": 167.42133049830747,
+        "NOx(GT)_R2": 0.3600454766556871,
+        "NOx(GT)_WAPE": 0.42341674335726665,
+        "NO2(GT)_MAPE": 0.25988481304516564,
+        "NO2(GT)_MAE": 33.53098797555398,
+        "NO2(GT)_MSE": 2003.7025497473883,
+        "NO2(GT)_RMSE": 44.762736173600786,
+        "NO2(GT)_R2": 0.31497259928733734,
+        "NO2(GT)_WAPE": 0.23496666306226774,
+        "T_MAPE": 24116502596732.094,
+        "T_MAE": 4.2297707102214535,
+        "T_MSE": 26.065208253758318,
+        "T_RMSE": 5.1054097047894516,
+        "T_R2": 0.24891709965991193,
+        "T_WAPE": 0.42236977600326997,
+        "RH_MAPE": 0.17383492935916783,
+        "RH_MAE": 7.458833491467694,
+        "RH_MSE": 99.59409888834625,
+        "RH_RMSE": 9.979684308050343,
+        "RH_R2": 0.6344609668692612,
+        "RH_WAPE": 0.14993248499127537
+    }
+}

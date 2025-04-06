@@ -169,7 +169,8 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
         project_name="tmp",
         seed=SEED,
         overwrite=True,
-        distribution_strategy=tf.distribute.MirroredStrategy()
+        distribution_strategy=tf.distribute.MirroredStrategy(),
+        max_consecutive_failed_trials=int(NB_TRIALS/2)
     )
     start_time = time.time()
     start_time_perf = time.perf_counter()

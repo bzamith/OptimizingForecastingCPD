@@ -35,16 +35,6 @@ def get_early_stopping(is_validation: bool = True) -> EarlyStopping:
     )
 
 
-def get_reduce_lr(is_validation: bool = True) -> EarlyStopping:
-    return ReduceLROnPlateau(
-        monitor='val_loss' if is_validation else 'loss',
-        factor=0.5,
-        patience=5,
-        restore_best_weights=True,
-        min_lr=1e-5
-    )
-
-
 class TimeSeriesHyperModel(HyperModel):
     """A HyperModel for building and training time series forecasting models.
 
@@ -153,7 +143,7 @@ class TimeSeriesHyperModel(HyperModel):
         if validation_steps <= 0:
             raise Exception("Validation steps must be greater than 0.")
 
-        kwargs['callbacks'] = kwargs.get('callbacks', []) + [get_early_stopping(), get_reduce_lr()]
+        kwargs['callbacks'] = kwargs.get('callbacks', []) + [get_early_stopping()]
 
         history = model.fit(
             train_dataset,
@@ -207,7 +197,7 @@ class InternalForecaster:
 
         steps_per_epoch = num_train // self.batch_size
 
-        kwargs['callbacks'] = kwargs.get('callbacks', []) + [get_early_stopping(False), get_reduce_lr(False)]
+        kwargs['callbacks'] = kwargs.get('callbacks', []) + [get_early_stopping(False)]
 
         history = self.model.fit(
             train_dataset,

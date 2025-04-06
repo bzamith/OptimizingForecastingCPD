@@ -11,4 +11,3 @@ env/
 # Project
 *.zip
 *outputs/tuner/
-*outputs/report/
