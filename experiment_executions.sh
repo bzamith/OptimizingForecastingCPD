@@ -3,7 +3,7 @@
 # Constants
 CONFIG_FILE="config/constants.py"
 RUN_SCRIPT="./run.sh"
-SEEDS=(0 42 52 101 214) # 565 600 713 999 1001)
+SEEDS=(0 42 52 101 214 565 600 713 999 1001)
 DATASETS=("UCI AIR_QUALITY" "UCI PRSA_BEIJING" "UCI APPLIANCES_ENERGY" "UCI METRO_TRAFFIC")
 METHODS=("Window" "Bin_Seg" "Bottom_Up")
 COST_FUNCTIONS=("L1" "L2" "Normal" "Linear" "Rank" "RBF" "AR")
@@ -45,8 +45,8 @@ run_experiments() {
 }
 
 # Run experiments for each dataset and seed
-for dataset in "${DATASETS[@]}"; do
-  for seed in "${SEEDS[@]}"; do
+for seed in "${SEEDS[@]}"; do
+  for dataset in "${DATASETS[@]}"; do
     run_experiments "$seed" "$dataset"
   done
 done
