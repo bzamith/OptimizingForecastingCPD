@@ -1,0 +1,45 @@
+\begin{table}[!htpb] \small
+    \caption{Execution Time results (in minutes) for each dataset.}
+    \centering
+    \begin{tabular}{lcccc}
+        \toprule
+        & \makecell{\textbf{Air}\\\textbf{Quality}} 
+        & \makecell{\textbf{Beijing}\\\textbf{PM2.5}} 
+        & \makecell{\textbf{Appliances}\\\textbf{Energy}} 
+        & \makecell{\textbf{Metro}\\\textbf{Traffic}} \\
+        \midrule
+BinSeg AR & 9.17 $\pm$ 1.41 & 2.02 $\pm$ 0.30 & 30.30 $\pm$ 5.06 & 59.43 $\pm$ 11.15 \\
+BinSeg L1 & 9.22 $\pm$ 1.48 & 67.89 $\pm$ 14.12 & 19.02 $\pm$ 4.04 & 62.63 $\pm$ 13.41 \\
+BinSeg L2 & 9.41 $\pm$ 1.63 & \textbf{1.67 $\pm$ 0.31} & 25.93 $\pm$ 5.38 & 62.54 $\pm$ 15.58 \\
+BinSeg Linear & 11.51 $\pm$ 1.99 & 20.52 $\pm$ 4.54 & 16.38 $\pm$ 3.01 & 27.49 $\pm$ 5.55 \\
+BinSeg Normal & 9.24 $\pm$ 1.40 & 20.26 $\pm$ 4.37 & 25.30 $\pm$ 5.72 & 28.11 $\pm$ 6.62 \\
+BinSeg RBF & 9.49 $\pm$ 1.37 & 110.73 $\pm$ 14.90 & 23.54 $\pm$ 4.71 & 145.35 $\pm$ 16.34 \\
+BinSeg Rank & 9.03 $\pm$ 1.41 & 64.84 $\pm$ 12.33 & 21.24 $\pm$ 4.49 & 62.84 $\pm$ 11.32 \\
+BottomUp AR & 9.37 $\pm$ 1.48 & 50.98 $\pm$ 9.90 & 25.60 $\pm$ 6.48 & 30.88 $\pm$ 5.29 \\
+BottomUp L1 & 9.36 $\pm$ 1.57 & 64.71 $\pm$ 14.87 & 21.24 $\pm$ 3.74 & 59.96 $\pm$ 13.38 \\
+BottomUp L2 & 9.34 $\pm$ 1.44 & 22.32 $\pm$ 5.81 & 24.42 $\pm$ 6.08 & 29.33 $\pm$ 4.08 \\
+BottomUp Linear & 10.94 $\pm$ 1.53 & 54.43 $\pm$ 11.32 & \textbf{6.34 $\pm$ 0.90} & 27.26 $\pm$ 4.96 \\
+BottomUp Normal & 9.85 $\pm$ 1.80 & 17.96 $\pm$ 3.88 & 20.23 $\pm$ 3.82 & 26.95 $\pm$ 4.27 \\
+BottomUp RBF & 9.40 $\pm$ 1.52 & 62.09 $\pm$ 14.02 & 20.47 $\pm$ 4.25 & 59.96 $\pm$ 12.86 \\
+BottomUp Rank & 9.51 $\pm$ 1.54 & 65.53 $\pm$ 13.66 & 24.57 $\pm$ 5.43 & 49.74 $\pm$ 9.74 \\
+Fixed Cut 10% & 16.77 $\pm$ 2.48 & 60.32 $\pm$ 13.16 & 38.42 $\pm$ 9.64 & 65.16 $\pm$ 12.20 \\
+Fixed Cut 20% & 13.67 $\pm$ 2.28 & 55.99 $\pm$ 12.61 & 35.22 $\pm$ 8.60 & 56.56 $\pm$ 11.38 \\
+Fixed Cut 30% & 12.52 $\pm$ 2.00 & 51.26 $\pm$ 9.79 & 32.20 $\pm$ 7.29 & 52.54 $\pm$ 10.19 \\
+Fixed Cut 40% & 11.25 $\pm$ 1.69 & 46.60 $\pm$ 11.19 & 28.64 $\pm$ 7.05 & 45.18 $\pm$ 9.58 \\
+Fixed Cut 50% & 9.78 $\pm$ 0.99 & 39.48 $\pm$ 8.55 & 25.70 $\pm$ 5.95 & 41.54 $\pm$ 8.68 \\
+Fixed Cut 60% & 9.21 $\pm$ 1.32 & 33.54 $\pm$ 8.72 & 23.05 $\pm$ 6.14 & 33.91 $\pm$ 8.03 \\
+Fixed Cut 70% & 7.45 $\pm$ 1.27 & 26.71 $\pm$ 7.44 & 18.20 $\pm$ 4.20 & 26.62 $\pm$ 5.06 \\
+Fixed Cut 80% & 6.93 $\pm$ 1.40 & 19.21 $\pm$ 4.01 & 12.61 $\pm$ 1.94 & 22.33 $\pm$ 4.35 \\
+Fixed Cut 90% & \textbf{4.65 $\pm$ 0.41} & 10.73 $\pm$ 2.21 & 7.26 $\pm$ 0.98 & \textbf{11.89 $\pm$ 2.00} \\
+No CPD & 20.81 $\pm$ 3.99 & 64.73 $\pm$ 13.01 & 41.03 $\pm$ 8.91 & 69.57 $\pm$ 11.74 \\
+Window AR & 6.99 $\pm$ 1.27 & 56.30 $\pm$ 13.96 & 21.65 $\pm$ 4.34 & 30.15 $\pm$ 5.74 \\
+Window L1 & 6.99 $\pm$ 0.83 & 38.93 $\pm$ 9.31 & 24.46 $\pm$ 5.25 & 21.91 $\pm$ 4.73 \\
+Window L2 & 6.34 $\pm$ 1.06 & 38.82 $\pm$ 9.05 & 21.94 $\pm$ 4.70 & 29.56 $\pm$ 5.42 \\
+Window Linear & 11.15 $\pm$ 1.74 & 22.24 $\pm$ 5.72 & 6.46 $\pm$ 0.88 & 53.16 $\pm$ 12.66 \\
+Window Normal & 7.25 $\pm$ 1.11 & 25.75 $\pm$ 5.76 & 25.97 $\pm$ 5.79 & 33.70 $\pm$ 6.71 \\
+Window RBF & 7.47 $\pm$ 1.14 & 42.98 $\pm$ 9.44 & 30.04 $\pm$ 6.86 & 22.90 $\pm$ 3.48 \\
+Window Rank & 7.48 $\pm$ 1.10 & 68.90 $\pm$ 14.38 & 6.46 $\pm$ 0.88 & 52.12 $\pm$ 10.67 \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:etResults}
+\end{table}

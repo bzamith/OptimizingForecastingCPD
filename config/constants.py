@@ -1,4 +1,4 @@
-SEED = 214
+SEED = 1001
 
 DATE_COLUMN = 'ds'
 
