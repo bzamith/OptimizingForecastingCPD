@@ -1,4 +1,4 @@
-# Time Series Forecasting Subsets Study
+# Optimizing Climate Forecasting via Reduced Time Series from Change Point Detection Methods
 
 ## About
 
