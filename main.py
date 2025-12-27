@@ -3,6 +3,7 @@ import os
 import random
 import sys
 import time
+import warnings
 from datetime import datetime
 
 from keras_tuner import RandomSearch
@@ -18,31 +19,43 @@ from config.constants import (
     SEED, TRAIN_PERC
 )
 
-from src.change_point_detector import ChangePointCostFunction, ChangePointMethod, get_change_point_detector
-from src.dataset import read_dataset, split_X_y, split_train_test
-from src.forecaster import InternalForecaster, TimeSeriesHyperModel
-from src.scaler import Scaler
+from src.cpd import CPDCostFunction, CPDMethod, CPDDetectorFactory
+from src.data_reader import fill_na, read_dataset, split_X_y, split_train_test
+from src.forecaster import InternalForecaster, ForecasterFactory, ForecasterType
+from src.scaler import ScalerFactory, ScalerType
 from src.utils import get_error_results
+
+# Suppress third-party library warnings
+warnings.filterwarnings("ignore", category=FutureWarning, module="keras.src.export.tf2onnx_lib")
+warnings.filterwarnings("ignore", category=UserWarning, module="ruptures.costs.costnormal")
 
 tf.get_logger().setLevel('ERROR')
 tf.config.set_visible_devices([], "GPU")
-tf.config.experimental.set_memory_growth(tf.config.list_physical_devices("GPU")[0], True)
+
+gpu_devices = tf.config.list_physical_devices("GPU")
+if gpu_devices:
+    tf.config.experimental.set_memory_growth(gpu_devices[0], True)
 
 np.random.seed(SEED)
 random.seed(SEED)
 tf.random.set_seed(SEED)
 
 
-def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
-        change_point_method_argv: str, change_point_cost_function_argv: str) -> None:
+def run(timestamp: str,
+        dataset_domain_argv: str,
+        dataset_argv: str,
+        cpd_method_argv: str,
+        cpd_cost_function_argv: str,
+        forecaster_type_argv: str) -> None:
     """Execute the forecasting process with hyperparameter optimization and neural architecture search.
 
     Args:
         timestamp (str): Timestamp of the execution.
-        dataset_domain_argv (str): Domain of the dataset.
-        dataset_argv (str): Specific dataset to be used.
-        change_point_method_argv (str): Identifier for the change point model.
-        change_point_cost_function_argv (str): Identifier for the change point method.
+        dataset_domain_argv (str): Domain of the dataset (e.g., 'TCPD').
+        dataset_argv (str): Specific dataset to be used (e.g., 'APPLE').
+        cpd_method_argv (str): Identifier for the change point method (e.g., 'Window').
+        cpd_cost_function_argv (str): Identifier for the change point cost function (e.g., 'L1').
+        forecaster_type_argv (str): Type of forecasting model ('LSTM', 'Transformer', 'SSM', 'Hybrid')..
 
     Returns:
         None
@@ -51,11 +64,12 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
         with open(f"{report_path}/report.json", 'w') as file:
             json.dump(report, file, indent=4)
 
-    execution_id = f"{timestamp}_{dataset_domain_argv}_{dataset_argv}_{change_point_method_argv}_{change_point_cost_function_argv}_{SEED}"
-    change_point_method = ChangePointMethod.from_str(change_point_method_argv)
-    change_point_cost_function = ChangePointCostFunction.from_str(change_point_cost_function_argv)
-    change_point_approach = f"{change_point_method.value.title()} {change_point_cost_function.value.title()}"
-    outputs_sub_path = f"seed={SEED}/{dataset_domain_argv}/{dataset_argv}/{change_point_method.value}/{change_point_cost_function.value}/{timestamp}"
+    execution_id = f"{timestamp}_{dataset_domain_argv}_{dataset_argv}_{cpd_method_argv}_{cpd_cost_function_argv}_{forecaster_type_argv}_{SEED}"
+    cpd_method = CPDMethod.from_str(cpd_method_argv)
+    cpd_cost_function = CPDCostFunction.from_str(cpd_cost_function_argv)
+    forecaster_type = ForecasterType.from_str(forecaster_type_argv)
+    change_point_approach = f"{cpd_method.value.title()} {cpd_cost_function.value.title()}"
+    outputs_sub_path = f"seed={SEED}/{dataset_domain_argv}/{dataset_argv}/{cpd_method.value}/{cpd_cost_function.value}/{forecaster_type.value}/{timestamp}"
 
     print(f"[Step 1] Reading dataset {dataset_argv} from {dataset_domain_argv}")
     df, variables = read_dataset(dataset_domain_argv, dataset_argv)
@@ -63,13 +77,17 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
     report_path = f"outputs/report/{outputs_sub_path}"
     os.makedirs(report_path, exist_ok=True)
 
-    print("[Step 2] Splitting data into train_val and test")
+    print("[Step 2] Splitting data into train_val and test and filling missing values")
     train_val, test = split_train_test(df)
+    train_val = fill_na(train_val, variables, limit_direction="forward")
+    test = fill_na(test, variables, limit_direction="both")
+
     report = {
         'execution_id': execution_id,
         'timestamp': timestamp,
-        'change_point_method': change_point_method.value,
-        'change_point_cost_function': change_point_cost_function.value,
+        'forecaster_type': forecaster_type.value,
+        'cpd_method': cpd_method.value,
+        'cpd_cost_function': cpd_cost_function.value,
         'change_point_approach': change_point_approach,
         'seed': SEED,
         'observation_window': OBSERVATION_WINDOW,
@@ -88,7 +106,7 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
     start_time = time.time()
     start_time_perf = time.perf_counter()
     start_time_process = time.process_time()
-    change_point_detector = get_change_point_detector(change_point_method, change_point_cost_function)
+    change_point_detector = CPDDetectorFactory.create_detector(cpd_method, cpd_cost_function)
     change_point, change_point_perc = change_point_detector.find_change_point(train_val, variables)
     end_time = time.time()
     end_time_perf = time.perf_counter()
@@ -131,7 +149,7 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
     start_time = time.time()
     start_time_perf = time.perf_counter()
     start_time_process = time.process_time()
-    scaler = Scaler(variables)
+    scaler = ScalerFactory.create_scaler(ScalerType.STANDARD, variables)
     scaled_reduced_train = scaler.fit_scale(reduced_train)
     scaled_reduced_val = scaler.scale(reduced_val)
     end_time = time.time()
@@ -155,9 +173,10 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
     })
     save_report()
 
-    print("[Step 8] Running HPO and NAS")
+    print(f"[Step 8] Running HPO and NAS with {forecaster_type.value.upper()} model")
     n_variables = len(variables)
-    forecaster_hypermodel = TimeSeriesHyperModel(
+    forecaster_hypermodel = ForecasterFactory.create_forecaster(
+        forecaster_type=forecaster_type,
         n_variables=n_variables
     )
     forecaster_tuner = RandomSearch(
@@ -166,7 +185,7 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
         max_trials=NB_TRIALS,
         executions_per_trial=1,
         directory=f"outputs/tuner/",
-        project_name="tmp",
+        project_name=f"tmp_{forecaster_type.value}",
         seed=SEED,
         overwrite=True,
         distribution_strategy=tf.distribute.MirroredStrategy(),
@@ -217,7 +236,7 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
     start_time = time.time()
     start_time_perf = time.perf_counter()
     start_time_process = time.process_time()
-    scaler = Scaler(variables)
+    scaler = ScalerFactory.create_scaler(ScalerType.STANDARD, variables)
     scaled_reduced_train_val = scaler.fit_scale(reduced_train_val)
     scaled_test = scaler.scale(test)
     end_time = time.time()
@@ -308,11 +327,20 @@ def run(timestamp: str, dataset_domain_argv: str, dataset_argv: str,
 
 
 if __name__ == "__main__":
+    if len(sys.argv) < 5:
+        print("""
+            Wrong number of parameters!
+            Usage: python main.py <dataset_domain> <dataset> <cpd_method> <cpd_cost_function> <forecaster_type>
+        """)
+        sys.exit(1)
+
     dataset_domain_argv = sys.argv[1]
     dataset_argv = sys.argv[2]
-    change_point_method_argv = sys.argv[3]
-    change_point_cost_function_argv = sys.argv[4]
+    cpd_method_argv = sys.argv[3]
+    cpd_cost_function_argv = sys.argv[4]
+    forecaster_type_argv = sys.argv[5]
 
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
-    run(timestamp, dataset_domain_argv, dataset_argv, change_point_method_argv, change_point_cost_function_argv)
+    run(timestamp, dataset_domain_argv, dataset_argv, cpd_method_argv,
+        cpd_cost_function_argv, forecaster_type_argv)

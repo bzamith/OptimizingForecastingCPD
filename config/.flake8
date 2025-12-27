@@ -1,8 +1,0 @@
-[flake8]
-ignore = ANN003, ANN101, ANN102, ANN204, ANN206, ANN401
-max_line_length = 200
-filename = *.py
-exclude = .git, __pycache__, datasets/*, env/*
-import-order-style = cryptography
-max-complexity = 15
-application-import-names = src, config

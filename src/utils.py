@@ -1,15 +1,13 @@
 from typing import List
 
 import numpy as np
-
 import pandas as pd
-
 from sklearn.metrics import (
     mean_absolute_error,
     mean_absolute_percentage_error,
     mean_squared_error,
     r2_score,
-    root_mean_squared_error
+    root_mean_squared_error,
 )
 
 
@@ -65,12 +63,14 @@ def get_error_results(y_true: pd.DataFrame, y_pred: pd.DataFrame, variables: Lis
         y_true_i = [sublist[i] for sublist in y_true]
         y_pred_i = [sublist[i] for sublist in y_pred]
         variable = variables[i]
-        results.update({
-            f"{variable}_MAPE": mean_absolute_percentage_error(y_true_i, y_pred_i),
-            f"{variable}_MAE": mean_absolute_error(y_true_i, y_pred_i),
-            f"{variable}_MSE": mean_squared_error(y_true_i, y_pred_i),
-            f"{variable}_RMSE": root_mean_squared_error(y_true_i, y_pred_i),
-            f"{variable}_R2": r2_score(y_true_i, y_pred_i),
-            f"{variable}_WAPE": _wape(y_true_i, y_pred_i),
-        })
+        results.update(
+            {
+                f"{variable}_MAPE": mean_absolute_percentage_error(y_true_i, y_pred_i),
+                f"{variable}_MAE": mean_absolute_error(y_true_i, y_pred_i),
+                f"{variable}_MSE": mean_squared_error(y_true_i, y_pred_i),
+                f"{variable}_RMSE": root_mean_squared_error(y_true_i, y_pred_i),
+                f"{variable}_R2": r2_score(y_true_i, y_pred_i),
+                f"{variable}_WAPE": _wape(y_true_i, y_pred_i),
+            }
+        )
     return results

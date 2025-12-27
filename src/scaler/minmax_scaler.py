@@ -1,30 +1,32 @@
+"""MinMax Scaler implementation using sklearn's MinMaxScaler."""
+
 from typing import List
 
 import pandas as pd
+from sklearn.preprocessing import MinMaxScaler as SklearnMinMaxScaler
 
-from sklearn import preprocessing as pp
+from src.scaler.base_scaler import BaseScaler
 
 
-class Scaler:
-    """A scaler for scaling and descaling data using StandardScaler.
+class MinMaxScaler(BaseScaler):
+    """MinMax scaler that scales features to a given range (default 0-1).
 
-    This class wraps scikit-learn's StandardScaler to provide methods for fitting,
-    transforming, and inversely transforming a DataFrame based on a list of variables.
+    This scaler wraps sklearn's MinMaxScaler and applies the transformation
+    only to the specified variables.
 
     Attributes:
-        scaler (StandardScaler): An instance of StandardScaler from sklearn.preprocessing.
         variables (List[str]): List of variables to be scaled.
+        scaler: Sklearn's MinMaxScaler instance.
     """
 
-    scaler = pp.StandardScaler()
-
     def __init__(self, variables: List[str]):
-        """Initialize the Scaler.
+        """Initialize the MinMaxScaler.
 
         Args:
             variables (List[str]): List of variables to be scaled.
         """
-        self.variables = variables
+        super().__init__(variables)
+        self.scaler = SklearnMinMaxScaler()
 
     def fit(self, data: pd.DataFrame) -> None:
         """Fit the scaler to the provided data.

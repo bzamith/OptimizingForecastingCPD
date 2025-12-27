@@ -1,36 +1,37 @@
 # Optimizing Climate Forecasting via Reduced Time Series from Change Point Detection Methods
 
-## About
+**Authors:** Bruna Zamith Santos, Maira Farias de Andrade Lira
+**Supervisors:** Ricardo Cerri, Ricardo Prudêncio
 
-- Authors: Bruna Zamith Santos, Maira Farias de Andrade Lira
-- Supervisors: Ricardo Cerri, Ricardo Prudêncio
+## Installation
 
-## Install
-
-```
-python3 -m virtualenv -p /usr/bin/python3 env
-source env/bin/activate
-pip3 install -r requirements.txt
-deactivate
+```bash
+curl -sSL https://install.python-poetry.org | python3 -
+poetry install --with dev --with chronos
 ```
 
-## Data
+## Usage
 
-You may check the pre-define dataset domains in `/src/dataset/`
-In case you want to add a custom one, you'll have to update that file
+```bash
+# Basic execution
+poetry run python main.py <DATASET_DOMAIN> <DATASET> <CPD_METHOD> <COST_FUNCTION> <MODEL>
 
-All datasets must be time series (uni or multivariate), and contain the `Date` column.
-
-## Run
-
+# Example
+poetry run python main.py TCPD APPLE Window L1 lstm
 ```
-source env/bin/activate
-chmod +x run.sh
 
-# Don't forget to activate the virtualenv, if you are using one!
-# First, build the code:
-./run.sh build
+**Available models:** `LSTM`, `Transformer`, `SSM`, `Hybrid`, `ARIMA`, `TS2Vec`, `Chronos`
+**CPD methods:** `Window`, `Bin_Seg`, `Bottom_Up`, `Fixed_Perc`
+**Dataset domains:** See [src/data_reader/](src/data_reader/)
 
-# Then, to run for Apple dataset (TCPD domain) and Window L1 change point approach:
-./run.sh execute TCPD APPLE Window L1
+## Development Commands
+
+```bash
+make install-dev    # Install dependencies
+make format         # Format code
+make lint           # Run linter
+make test           # Run tests
+make build          # Format, lint and test
+make run            # Run example
+make clean          # Clean artifacts
 ```

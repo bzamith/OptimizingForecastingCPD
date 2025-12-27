@@ -3,10 +3,20 @@
 dist/
 *.egg-info
 *.DS_Store
+.claude/
+
+# Python and Pytest
 *__pycache__
+.pytest_cache/
+htmlcov/
+.coverage
 
 # Virtual Env
-env/
+.venv/
+
+# Poetry
+poetry.lock
+.poetry/
 
 # Project
 *.zip

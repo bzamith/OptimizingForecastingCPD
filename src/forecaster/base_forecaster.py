@@ -1,23 +1,23 @@
+"""Base forecaster classes with common functionality.
+
+This module contains the base classes that all forecaster implementations inherit from.
+"""
+
+from abc import ABC, abstractmethod
 import io
 from typing import Any
 
 from keras_tuner import HyperModel
-
 import numpy as np
-
 import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-from tensorflow.keras.layers import BatchNormalization, Dense, Input, LSTM, Reshape
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.regularizers import l2
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.models import Model
 
-from config.constants import FORECASTER_LOSS, FORECAST_HORIZON, OBSERVATION_WINDOW
+from config.constants import FORECAST_HORIZON
 
 
 def get_early_stopping(is_validation: bool = True) -> EarlyStopping:
-    """
-    Creates and returns an EarlyStopping callback for training models.
+    """Creates and returns an EarlyStopping callback for training models.
 
     Args:
         is_validation (bool): Whether it should consider validation loss or not.
@@ -28,27 +28,25 @@ def get_early_stopping(is_validation: bool = True) -> EarlyStopping:
         the specified parameters.
     """
     return EarlyStopping(
-        monitor='val_loss' if is_validation else 'loss',
+        monitor="val_loss" if is_validation else "loss",
         patience=10,
         min_delta=1e-2,
-        restore_best_weights=True
+        restore_best_weights=True,
     )
 
 
-class TimeSeriesHyperModel(HyperModel):
-    """A HyperModel for building and training time series forecasting models.
+class BaseForecasterHyperModel(HyperModel, ABC):
+    """Abstract base class for all forecaster hypermodels.
 
-    This HyperModel constructs a Keras Sequential model with a configurable number of recurrent
-    layers (LSTM or GRU) and a Dense output layer. The model architecture and training parameters
-    are optimized using Keras Tuner.
+    This class provides common functionality for all forecaster implementations
+    including the fit method with proper data handling.
 
     Attributes:
         n_variables (int): The number of variables in the time series data.
-        model_type (str): The type of recurrent layer to use ('LSTM' or 'GRU'). Defaults to 'LSTM'.
     """
 
     def __init__(self, n_variables: int):
-        """Initialize the TimeSeriesHyperModel.
+        """Initialize the BaseForecasterHyperModel.
 
         Args:
             n_variables (int): Number of variables in the time series data.
@@ -56,51 +54,32 @@ class TimeSeriesHyperModel(HyperModel):
         super().__init__()
         self.n_variables = n_variables
 
-    def build(self, hp: Any) -> Sequential:
-        """Build and compile a Keras Sequential model based on provided hyperparameters.
+    @abstractmethod
+    def build(self, hp: Any) -> Model:
+        """Build and compile a model based on provided hyperparameters.
 
-        The model architecture is determined by the following hyperparameters:
-          - 'num_layers': Number of recurrent layers (from 1 to 5).
-          - 'units_<i>': Number of units in the i-th recurrent layer (from 32 to 128, step 32).
-          - 'learning_rate': Learning rate for the Adam optimizer (choices: 1e-2, 1e-3, 1e-4).
-
-        The type of recurrent layer (LSTM or GRU) is chosen based on the `model_type` attribute.
-        The input shape is determined by `OBSERVATION_WINDOW` and `n_variables`, and the output
-        is reshaped to match the forecast horizon.
+        This method must be implemented by subclasses.
 
         Args:
             hp (Any): Hyperparameters used for model tuning.
 
         Returns:
-            Sequential: A compiled Keras Sequential model.
+            Model: A compiled Keras model.
         """
-        model = Sequential()
-        model.add(Input(shape=(OBSERVATION_WINDOW, self.n_variables)))
+        pass
 
-        num_layers = hp.Int('num_layers', 1, 5)
-        for i in range(num_layers):
-            units = hp.Int(f'units_{i}', 32, 128, step=32)
-            return_seq = True if i < num_layers - 1 else False
-            model.add(LSTM(units=units, return_sequences=return_seq, dropout=0.2, recurrent_dropout=0.2, kernel_regularizer=l2(1e-4)))
-            model.add(BatchNormalization())
-        model.add(Dense(self.n_variables * FORECAST_HORIZON))
-        model.add(Reshape((FORECAST_HORIZON, self.n_variables)))
-        model.compile(
-            optimizer=Adam(
-                learning_rate=hp.Choice('learning_rate', [1e-2, 5e-2, 1e-3, 5e-3, 1e-4, 5e-4]),
-                clipnorm=1.0
-            ),
-            loss=FORECASTER_LOSS
-        )
-        return model
-
-    def fit(self, hp: Any, model: Any, X_train: np.array, y_train: np.array, validation_data: tuple, **kwargs) -> dict:
+    def fit(
+        self,
+        hp: Any,
+        model: Any,
+        X_train: np.array,
+        y_train: np.array,
+        validation_data: tuple,
+        **kwargs,
+    ) -> dict:
         """Train the model on the provided training data with hyperparameter tuning.
 
-        This method sets up early stopping based on the forecasting objective and splits the
-        training data into training and validation sets based on a provided validation split.
-        The data is then converted into TensorFlow datasets with batching and repeated for
-        training.
+        This method implements common training logic for all forecaster types.
 
         Args:
             hp (Any): Hyperparameters for tuning the model.
@@ -108,24 +87,34 @@ class TimeSeriesHyperModel(HyperModel):
             X_train (np.array): Training data features.
             y_train (np.array): Training data labels.
             validation_data (tuple): A tuple containing validation features and labels.
-            **kwargs: Additional keyword arguments for model training. Must include a 'validation_split'
-                      key that specifies the proportion of data to use for validation.
+            **kwargs: Additional keyword arguments for model training.
 
         Returns:
             dict: A dictionary containing the history of training metrics.
 
         Raises:
-            ValueError: If 'validation_split' is not provided in **kwargs.
+            Exception: If validation batch size or steps are invalid.
         """
         X_val, y_val = validation_data
 
         len_X_train = len(X_train)
         len_X_val = len(X_val)
-        val_min_batch = len_X_val - (len_X_val % 4)
-        if val_min_batch <= 0:
-            raise Exception("Validation batch size must be greater than 0.")
 
-        batch_size = hp.Int('batch_size', min_value=min(32, val_min_batch), max_value=max(32, len_X_val // 4), step=16)
+        # Calculate batch size range to ensure validation_steps >= 1
+        # Max batch size should be at most len_X_val to ensure at least 1 validation step
+        # Using drop_remainder=True in validation dataset, so we need at least 2 batches
+        max_batch_size = max(4, len_X_val // 2)
+        min_batch_size = min(4, max_batch_size)
+
+        # Calculate appropriate step size (at least 1, at most 1/4 of the range)
+        step_size = max(1, (max_batch_size - min_batch_size) // 4)
+
+        batch_size = hp.Int(
+            "batch_size",
+            min_value=min_batch_size,
+            max_value=max_batch_size,
+            step=step_size,
+        )
 
         X_train = tf.convert_to_tensor(X_train, dtype=tf.float32)
         y_train = tf.convert_to_tensor(y_train, dtype=tf.float32)
@@ -143,13 +132,13 @@ class TimeSeriesHyperModel(HyperModel):
         if validation_steps <= 0:
             raise Exception("Validation steps must be greater than 0.")
 
-        kwargs['callbacks'] = kwargs.get('callbacks', []) + [get_early_stopping()]
+        kwargs["callbacks"] = kwargs.get("callbacks", []) + [get_early_stopping()]
 
         history = model.fit(
             train_dataset,
             validation_data=val_dataset,
             validation_steps=validation_steps,
-            epochs=hp.Int('epochs', min_value=25, max_value=150, step=25),
+            epochs=hp.Int("epochs", min_value=25, max_value=150, step=25),
             steps_per_epoch=steps_per_epoch,
             **kwargs,
         )
@@ -160,20 +149,24 @@ class TimeSeriesHyperModel(HyperModel):
 class InternalForecaster:
     """Encapsulate a forecasting model and provide utility methods for prediction and summary.
 
-    This class wraps a Keras Sequential model to facilitate forecasting and obtaining a
+    This class wraps a Keras model to facilitate forecasting and obtaining a
     summary of the model's architecture.
 
     Attributes:
-        model (Sequential): A Keras Sequential model used for forecasting.
+        model (Model): A Keras model used for forecasting.
         n_variables (int): The number of variables in the time series data.
+        batch_size (int): Batch size for training.
+        epochs (int): Number of training epochs.
     """
 
-    def __init__(self, model: Sequential, n_variables: int, batch_size: int, epochs: int):
+    def __init__(self, model: Model, n_variables: int, batch_size: int, epochs: int):
         """Initialize the InternalForecaster.
 
         Args:
-            model (Sequential): A trained Keras Sequential model.
+            model (Model): A trained Keras model.
             n_variables (int): The number of variables in the time series data.
+            batch_size (int): Batch size for training.
+            epochs (int): Number of training epochs.
         """
         self.model = model
         self.n_variables = n_variables
@@ -197,7 +190,7 @@ class InternalForecaster:
 
         steps_per_epoch = num_train // self.batch_size
 
-        kwargs['callbacks'] = kwargs.get('callbacks', []) + [get_early_stopping(False)]
+        kwargs["callbacks"] = kwargs.get("callbacks", []) + [get_early_stopping(False)]
 
         history = self.model.fit(
             train_dataset,
@@ -228,5 +221,5 @@ class InternalForecaster:
             str: A string containing the summary of the model.
         """
         string_io = io.StringIO()
-        self.model.summary(print_fn=lambda x: string_io.write(x + '\n'))
+        self.model.summary(print_fn=lambda x: string_io.write(x + "\n"))
         return string_io.getvalue()

@@ -1,0 +1,115 @@
+[tool.poetry]
+name = "optimizing-forecasting-cpd"
+version = "0.2.0"
+description = "Optimizing Climate Forecasting via Reduced Time Series from Change Point Detection Methods"
+authors = [
+    "Bruna Zamith Santos",
+    "Maira Farias de Andrade Lira"
+]
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11,<3.14"
+keras-tuner = "^1.4.7"
+numpy = "^2.4.0"
+pandas = "^2.2.0"
+ruptures = "^1.1.9"
+scikit-learn = "^1.5.0"
+tensorflow = "^2.20.0"
+urllib3 = "^2.0.0"
+statsmodels = "^0.14.0"
+torch = "^2.0.0"
+
+[tool.poetry.group.dev.dependencies]
+flake8 = "^7.1.0"
+flake8-pyproject = "^1.2.3"
+flake8-annotations = "^3.1.0"
+flake8-isort = "^7.0.0"
+black = "^24.0.0"
+isort = "^5.13.0"
+pytest = "^8.0.0"
+
+[tool.poetry.group.chronos]
+optional = true
+
+[tool.poetry.group.chronos.dependencies]
+chronos-forecasting = {git = "https://github.com/amazon-science/chronos-forecasting.git"}
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+# black configuration
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312']
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | env
+  | build
+  | dist
+)/
+'''
+
+# isort configuration
+[tool.isort]
+line_length = 100
+known_first_party = ["src", "config"]
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+no_lines_before = ["LOCALFOLDER"]
+force_alphabetical_sort_within_sections = true
+force_sort_within_sections = true
+multi_line_output = 3
+include_trailing_comma = true
+use_parentheses = true
+ensure_newline_before_comments = true
+split_on_trailing_comma = true
+
+# flake8 configuration (compatible with black)
+[tool.flake8]
+max-line-length = 100
+extend-ignore = ["E203", "E266", "E501", "W503", "F401", "F841", "ANN"]
+exclude = [".git", "__pycache__", ".venv", "env", "build", "dist"]
+per-file-ignores = ["__init__.py:F401"]
+import-order-style = "google"
+application-import-names = ["src", "config"]
+
+# pytest configuration
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "-v"
+filterwarnings = [
+    "ignore::FutureWarning:keras.src.export.tf2onnx_lib",
+    "ignore::UserWarning:ruptures.costs.costnormal",
+]
+
+# coverage configuration
+[tool.coverage.run]
+source = ["src", "config"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
