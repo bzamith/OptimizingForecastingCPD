@@ -3,8 +3,8 @@
 # Default target
 help:
 	@echo "Available commands:"
-	@echo "  make install       - Install dependencies (without dev/chronos)"
-	@echo "  make install-dev   - Install all dependencies including dev and chronos"
+	@echo "  make install       - Install dependencies (without dev)"
+	@echo "  make install-dev   - Install all dependencies including dev"
 	@echo "  make format        - Format code with black and isort"
 	@echo "  make lint          - Lint code with flake8"
 	@echo "  make check         - Format and lint code"
@@ -17,9 +17,9 @@ help:
 install:
 	poetry install
 
-# Install all dependencies including dev and chronos
+# Install all dependencies including dev
 install-dev:
-	poetry install --with dev --with chronos
+	poetry install --with dev
 
 # Format code with black and isort
 format:

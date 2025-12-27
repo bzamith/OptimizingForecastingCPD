@@ -30,12 +30,6 @@ black = "^24.0.0"
 isort = "^5.13.0"
 pytest = "^8.0.0"
 
-[tool.poetry.group.chronos]
-optional = true
-
-[tool.poetry.group.chronos.dependencies]
-chronos-forecasting = {git = "https://github.com/amazon-science/chronos-forecasting.git"}
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

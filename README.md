@@ -7,7 +7,7 @@
 
 ```bash
 curl -sSL https://install.python-poetry.org | python3 -
-poetry install --with dev --with chronos
+poetry install --with dev
 ```
 
 ## Usage
@@ -20,7 +20,7 @@ poetry run python main.py <DATASET_DOMAIN> <DATASET> <CPD_METHOD> <COST_FUNCTION
 poetry run python main.py TCPD APPLE Window L1 lstm
 ```
 
-**Available models:** `LSTM`, `Transformer`, `SSM`, `Hybrid`, `ARIMA`, `TS2Vec`, `Chronos`
+**Available models:** `LSTM`, `Transformer`, `SSM`
 **CPD methods:** `Window`, `Bin_Seg`, `Bottom_Up`, `Fixed_Perc`
 **Dataset domains:** See [src/data_reader/](src/data_reader/)
 

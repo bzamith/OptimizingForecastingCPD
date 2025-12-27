@@ -7,7 +7,7 @@ DATASETS=("AUTOFORMER WEATHER" "INMET BRASILIA_DF" "INMET VITORIA_ES" "INMET POR
 CPD_METHODS=("Window" "Bin_Seg" "Bottom_Up")
 CPD_COST_FUNCTIONS=("L1" "L2" "Normal" "Linear" "Rank" "RBF" "AR")
 CPD_FIXED_CUTS=(0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9)
-FORECASTER_TYPES=("LSTM" "Transformer" "SSM" "Hybrid" "ARIMA" "TS2Vec" "Chronos")
+FORECASTER_TYPES=("LSTM" "Transformer" "SSM")
 
 # Ensure config file exists
 if [[ ! -f "$CONFIG_FILE" ]]; then

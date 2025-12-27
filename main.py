@@ -55,7 +55,7 @@ def run(timestamp: str,
         dataset_argv (str): Specific dataset to be used (e.g., 'APPLE').
         cpd_method_argv (str): Identifier for the change point method (e.g., 'Window').
         cpd_cost_function_argv (str): Identifier for the change point cost function (e.g., 'L1').
-        forecaster_type_argv (str): Type of forecasting model ('LSTM', 'Transformer', 'SSM', 'Hybrid')..
+        forecaster_type_argv (str): Type of forecasting model ('LSTM', 'Transformer', 'SSM')..
 
     Returns:
         None

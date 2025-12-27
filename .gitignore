@@ -20,5 +20,4 @@ poetry.lock
 
 # Project
 *.zip
-*outputs/tuner/
-*outputs/report/
+outputs/

@@ -10,13 +10,9 @@ from typing import Type, TYPE_CHECKING
 from src.forecaster.base_forecaster import BaseForecasterHyperModel
 
 if TYPE_CHECKING:
-    from src.forecaster.arima_forecaster import ARIMAForecasterHyperModel
-    from src.forecaster.chronos_forecaster import ChronosForecasterHyperModel
-    from src.forecaster.hybrid_forecaster import HybridForecasterHyperModel
     from src.forecaster.lstm_forecaster import LSTMForecasterHyperModel
     from src.forecaster.ssm_forecaster import SSMForecasterHyperModel
     from src.forecaster.transformer_forecaster import TransformerForecasterHyperModel
-    from src.forecaster.ts2vec_forecaster import TS2VECForecasterHyperModel
 
 
 class ForecasterType(Enum):
@@ -25,10 +21,6 @@ class ForecasterType(Enum):
     LSTM = "LSTM"
     TRANSFORMER = "Transformer"
     SSM = "SSM"
-    HYBRID = "Hybrid"
-    ARIMA = "ARIMA"
-    CHRONOS = "Chronos"
-    TS2VEC = "TS2Vec"
 
     @classmethod
     def from_str(cls, forecaster_type_str: str) -> "ForecasterType":
@@ -71,24 +63,16 @@ class ForecasterFactory:
     @staticmethod
     def _get_forecaster_registry():
         """Lazy load the forecaster registry to avoid circular imports."""
-        from src.forecaster.arima_forecaster import ARIMAForecasterHyperModel  # noqa: F811
-        from src.forecaster.chronos_forecaster import ChronosForecasterHyperModel  # noqa: F811
-        from src.forecaster.hybrid_forecaster import HybridForecasterHyperModel  # noqa: F811
         from src.forecaster.lstm_forecaster import LSTMForecasterHyperModel  # noqa: F811
         from src.forecaster.ssm_forecaster import SSMForecasterHyperModel  # noqa: F811
         from src.forecaster.transformer_forecaster import (  # noqa: F811
             TransformerForecasterHyperModel,
         )
-        from src.forecaster.ts2vec_forecaster import TS2VECForecasterHyperModel  # noqa: F811
 
         return {
             ForecasterType.LSTM: LSTMForecasterHyperModel,
             ForecasterType.TRANSFORMER: TransformerForecasterHyperModel,
             ForecasterType.SSM: SSMForecasterHyperModel,
-            ForecasterType.HYBRID: HybridForecasterHyperModel,
-            ForecasterType.ARIMA: ARIMAForecasterHyperModel,
-            ForecasterType.CHRONOS: ChronosForecasterHyperModel,
-            ForecasterType.TS2VEC: TS2VECForecasterHyperModel,
         }
 
     @classmethod

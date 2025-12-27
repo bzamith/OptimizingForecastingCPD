@@ -3,15 +3,11 @@
 import pytest
 
 from src.forecaster import (
-    ARIMAForecasterHyperModel,
-    ChronosForecasterHyperModel,
     ForecasterFactory,
     ForecasterType,
-    HybridForecasterHyperModel,
     LSTMForecasterHyperModel,
     SSMForecasterHyperModel,
     TransformerForecasterHyperModel,
-    TS2VECForecasterHyperModel,
 )
 
 
@@ -23,13 +19,6 @@ class TestForecasterType:
         assert ForecasterType.from_str("LSTM") == ForecasterType.LSTM
         assert ForecasterType.from_str("Transformer") == ForecasterType.TRANSFORMER
         assert ForecasterType.from_str("SSM") == ForecasterType.SSM
-        assert ForecasterType.from_str("Hybrid") == ForecasterType.HYBRID
-
-    def test_forecaster_type_from_str_advanced(self):
-        """Test converting advanced forecaster types."""
-        assert ForecasterType.from_str("ARIMA") == ForecasterType.ARIMA
-        assert ForecasterType.from_str("TS2Vec") == ForecasterType.TS2VEC
-        assert ForecasterType.from_str("Chronos") == ForecasterType.CHRONOS
 
     def test_forecaster_type_from_str_invalid(self):
         """Test invalid forecaster type string."""
@@ -49,11 +38,7 @@ class TestForecasterType:
         assert "LSTM" in forecaster_types
         assert "Transformer" in forecaster_types
         assert "SSM" in forecaster_types
-        assert "Hybrid" in forecaster_types
-        assert "ARIMA" in forecaster_types
-        assert "TS2Vec" in forecaster_types
-        assert "Chronos" in forecaster_types
-        assert len(forecaster_types) == 7
+        assert len(forecaster_types) == 3
 
 
 class TestForecasterFactory:
@@ -80,34 +65,6 @@ class TestForecasterFactory:
         assert isinstance(forecaster, SSMForecasterHyperModel)
         assert forecaster.n_variables == 1
 
-    def test_create_hybrid_forecaster(self):
-        """Test creating Hybrid forecaster."""
-        forecaster = ForecasterFactory.create_forecaster(ForecasterType.HYBRID, n_variables=4)
-
-        assert isinstance(forecaster, HybridForecasterHyperModel)
-        assert forecaster.n_variables == 4
-
-    def test_create_arima_forecaster(self):
-        """Test creating ARIMA forecaster."""
-        forecaster = ForecasterFactory.create_forecaster(ForecasterType.ARIMA, n_variables=1)
-
-        assert isinstance(forecaster, ARIMAForecasterHyperModel)
-        assert forecaster.n_variables == 1
-
-    def test_create_ts2vec_forecaster(self):
-        """Test creating TS2Vec forecaster."""
-        forecaster = ForecasterFactory.create_forecaster(ForecasterType.TS2VEC, n_variables=2)
-
-        assert isinstance(forecaster, TS2VECForecasterHyperModel)
-        assert forecaster.n_variables == 2
-
-    def test_create_chronos_forecaster(self):
-        """Test creating Chronos forecaster."""
-        forecaster = ForecasterFactory.create_forecaster(ForecasterType.CHRONOS, n_variables=1)
-
-        assert isinstance(forecaster, ChronosForecasterHyperModel)
-        assert forecaster.n_variables == 1
-
     def test_create_forecaster_with_different_n_variables(self):
         """Test creating forecasters with different number of variables."""
         for n_vars in [1, 3, 5, 10]:
@@ -126,10 +83,6 @@ class TestForecasterFactory:
             (ForecasterType.LSTM, LSTMForecasterHyperModel),
             (ForecasterType.TRANSFORMER, TransformerForecasterHyperModel),
             (ForecasterType.SSM, SSMForecasterHyperModel),
-            (ForecasterType.HYBRID, HybridForecasterHyperModel),
-            (ForecasterType.ARIMA, ARIMAForecasterHyperModel),
-            (ForecasterType.TS2VEC, TS2VECForecasterHyperModel),
-            (ForecasterType.CHRONOS, ChronosForecasterHyperModel),
         ]
 
         for forecaster_type, expected_class in test_cases:
@@ -143,11 +96,7 @@ class TestForecasterFactory:
         assert ForecasterType.LSTM in models
         assert ForecasterType.TRANSFORMER in models
         assert ForecasterType.SSM in models
-        assert ForecasterType.HYBRID in models
-        assert ForecasterType.ARIMA in models
-        assert ForecasterType.TS2VEC in models
-        assert ForecasterType.CHRONOS in models
-        assert len(models) == 7
+        assert len(models) == 3
 
     def test_create_forecaster_invalid_type(self):
         """Test creating forecaster with invalid type raises error."""
@@ -177,10 +126,6 @@ class TestForecasterIntegration:
             (ForecasterType.LSTM, LSTMForecasterHyperModel),
             (ForecasterType.TRANSFORMER, TransformerForecasterHyperModel),
             (ForecasterType.SSM, SSMForecasterHyperModel),
-            (ForecasterType.HYBRID, HybridForecasterHyperModel),
-            (ForecasterType.ARIMA, ARIMAForecasterHyperModel),
-            (ForecasterType.TS2VEC, TS2VECForecasterHyperModel),
-            (ForecasterType.CHRONOS, ChronosForecasterHyperModel),
         ]
 
         for forecaster_type, expected_class in test_cases:
