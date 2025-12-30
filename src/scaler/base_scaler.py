@@ -4,7 +4,7 @@ This module contains the base class that all scaler implementations inherit from
 """
 
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Union
 
 import pandas as pd
 
@@ -27,7 +27,7 @@ class BaseScaler(ABC):
         self.variables = variables
 
     @abstractmethod
-    def fit(self, data: pd.DataFrame) -> None:
+    def fit(self, data: Union[pd.Series, pd.DataFrame]) -> None:
         """Fit the scaler to the provided data.
 
         This method must be implemented by subclasses.
@@ -41,7 +41,7 @@ class BaseScaler(ABC):
         pass
 
     @abstractmethod
-    def fit_scale(self, data: pd.DataFrame) -> pd.DataFrame:
+    def fit_scale(self, data: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.DataFrame]:
         """Fit the scaler to the data and transform the specified variables.
 
         This method must be implemented by subclasses.
@@ -55,7 +55,7 @@ class BaseScaler(ABC):
         pass
 
     @abstractmethod
-    def scale(self, data: pd.DataFrame) -> pd.DataFrame:
+    def scale(self, data: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.DataFrame]:
         """Scale the specified variables in the DataFrame using the pre-fitted scaler.
 
         This method must be implemented by subclasses.
@@ -69,7 +69,7 @@ class BaseScaler(ABC):
         pass
 
     @abstractmethod
-    def descale(self, data: pd.DataFrame) -> pd.DataFrame:
+    def descale(self, data: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.DataFrame]:
         """Revert the scaling transformation on the specified variables.
 
         This method must be implemented by subclasses.

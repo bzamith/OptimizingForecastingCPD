@@ -13,7 +13,7 @@ import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.models import Model
 
-from config.constants import FORECAST_HORIZON
+from config.constants import EARLY_STOPPING_PATIENCE, FORECAST_HORIZON
 
 
 def get_early_stopping(is_validation: bool = True) -> EarlyStopping:
@@ -29,7 +29,7 @@ def get_early_stopping(is_validation: bool = True) -> EarlyStopping:
     """
     return EarlyStopping(
         monitor="val_loss" if is_validation else "loss",
-        patience=10,
+        patience=EARLY_STOPPING_PATIENCE,
         min_delta=1e-2,
         restore_best_weights=True,
     )
@@ -138,7 +138,7 @@ class BaseForecasterHyperModel(HyperModel, ABC):
             train_dataset,
             validation_data=val_dataset,
             validation_steps=validation_steps,
-            epochs=hp.Int("epochs", min_value=25, max_value=150, step=25),
+            epochs=hp.Int("epochs", min_value=25, max_value=75, step=25),
             steps_per_epoch=steps_per_epoch,
             **kwargs,
         )

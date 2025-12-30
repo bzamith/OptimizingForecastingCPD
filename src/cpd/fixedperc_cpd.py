@@ -1,7 +1,7 @@
 """Fixed Percentage change point detector implementation."""
 
 import math
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import pandas as pd
 
@@ -36,7 +36,6 @@ class FixedPercCPDDetector(BaseCPDDetector):
             "Fixed_Cut"
         ), f"Expected Fixed_Cut for cost_function in Fixed Percentage, instead got {cost_function.value}"
 
-        # Extract percentage from cost function value (e.g., "Fixed_Cut_0.5" -> 0.5)
         percentage = float(cost_function.value[-3:])
 
         assert (
@@ -45,7 +44,9 @@ class FixedPercCPDDetector(BaseCPDDetector):
 
         self.fixed_percentage = percentage
 
-    def find_change_point(self, df: pd.DataFrame, variables: List[str]) -> Tuple[int, float]:
+    def find_change_point(
+        self, df: Union[pd.DataFrame, pd.Series], variables: List[str]
+    ) -> Tuple[int, float]:
         """Find change point using fixed percentage.
 
         Args:

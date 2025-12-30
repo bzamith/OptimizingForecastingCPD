@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 
 import numpy as np
 import pandas as pd
@@ -33,7 +33,11 @@ def _wape(y_true: np.array, y_pred: np.array) -> float:
     return np.sum(np.abs(y_true - y_pred)) / denominator
 
 
-def get_error_results(y_true: pd.DataFrame, y_pred: pd.DataFrame, variables: List[str]) -> dict:
+def get_error_results(
+    y_true: Union[pd.Series, pd.DataFrame],
+    y_pred: Union[pd.Series, pd.DataFrame],
+    variables: List[str],
+) -> dict:
     """Calculate error metrics for true and predicted values.
 
     Computes overall error metrics (MAPE, MAE, MSE, RMSE, R2, WAPE) for all variables combined and for each

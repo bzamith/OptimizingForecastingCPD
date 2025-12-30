@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import shutil
 import sys
 import time
 import warnings
@@ -20,7 +21,7 @@ from config.constants import (
 )
 
 from src.cpd import CPDCostFunction, CPDMethod, CPDDetectorFactory
-from src.data_reader import fill_na, read_dataset, split_X_y, split_train_test
+from src.data_reader import create_missing_mask_for_y, fill_na, read_dataset, split_X_y, split_train_test
 from src.forecaster import InternalForecaster, ForecasterFactory, ForecasterType
 from src.scaler import ScalerFactory, ScalerType
 from src.utils import get_error_results
@@ -31,6 +32,9 @@ warnings.filterwarnings("ignore", category=UserWarning, module="ruptures.costs.c
 
 tf.get_logger().setLevel('ERROR')
 tf.config.set_visible_devices([], "GPU")
+
+# Enable mixed precision for faster training (~20% speedup with minimal accuracy impact)
+tf.keras.mixed_precision.set_global_policy('mixed_float16')
 
 gpu_devices = tf.config.list_physical_devices("GPU")
 if gpu_devices:
@@ -55,12 +59,12 @@ def run(timestamp: str,
         dataset_argv (str): Specific dataset to be used (e.g., 'APPLE').
         cpd_method_argv (str): Identifier for the change point method (e.g., 'Window').
         cpd_cost_function_argv (str): Identifier for the change point cost function (e.g., 'L1').
-        forecaster_type_argv (str): Type of forecasting model ('LSTM', 'Transformer', 'SSM')..
+        forecaster_type_argv (str): Type of forecasting model ('LSTM', 'Transformer', 'TCN')..
 
     Returns:
         None
     """
-    def save_report() -> None:
+    def save_report(report_path) -> None:
         with open(f"{report_path}/report.json", 'w') as file:
             json.dump(report, file, indent=4)
 
@@ -69,7 +73,7 @@ def run(timestamp: str,
     cpd_cost_function = CPDCostFunction.from_str(cpd_cost_function_argv)
     forecaster_type = ForecasterType.from_str(forecaster_type_argv)
     change_point_approach = f"{cpd_method.value.title()} {cpd_cost_function.value.title()}"
-    outputs_sub_path = f"seed={SEED}/{dataset_domain_argv}/{dataset_argv}/{cpd_method.value}/{cpd_cost_function.value}/{forecaster_type.value}/{timestamp}"
+    outputs_sub_path = f"seed={SEED}/dataset_domain={dataset_domain_argv}/dataset={dataset_argv}/cpd_method={cpd_method.value}/cpd_cost_function={cpd_cost_function.value}/forecaster_type={forecaster_type.value}/timestamp={timestamp}"
 
     print(f"[Step 1] Reading dataset {dataset_argv} from {dataset_domain_argv}")
     df, variables = read_dataset(dataset_domain_argv, dataset_argv)
@@ -77,10 +81,18 @@ def run(timestamp: str,
     report_path = f"outputs/report/{outputs_sub_path}"
     os.makedirs(report_path, exist_ok=True)
 
-    print("[Step 2] Splitting data into train_val and test and filling missing values")
+    print("[Step 2] Filling missing values and splitting data into train_val and test")
+    df, missing_mask = fill_na(df, variables)
     train_val, test = split_train_test(df)
-    train_val = fill_na(train_val, variables, limit_direction="forward")
-    test = fill_na(test, variables, limit_direction="both")
+    missing_mask_train_val, missing_mask_test = split_train_test(missing_mask)
+
+    # Calculate missing value statistics
+    total_values_train_val = missing_mask_train_val.size
+    total_values_test = missing_mask_test.size
+    missing_values_train_val = missing_mask_train_val.sum().sum()
+    missing_values_test = missing_mask_test.sum().sum()
+    missing_pct_train_val = (missing_values_train_val / total_values_train_val * 100) if total_values_train_val > 0 else 0
+    missing_pct_test = (missing_values_test / total_values_test * 100) if total_values_test > 0 else 0
 
     report = {
         'execution_id': execution_id,
@@ -99,8 +111,12 @@ def run(timestamp: str,
         'dataset_shape': df.shape,
         'train_val_shape': train_val.shape,
         'test_shape': test.shape,
+        'missing_values_train_val': int(missing_values_train_val),
+        'missing_values_test': int(missing_values_test),
+        'missing_pct_train_val': float(missing_pct_train_val),
+        'missing_pct_test': float(missing_pct_test),
     }
-    save_report()
+    save_report(report_path)
 
     print(f"[Step 3] Detecting change point ({change_point_approach})")
     start_time = time.time()
@@ -119,7 +135,7 @@ def run(timestamp: str,
         'change_point': str(change_point),
         'change_point_perc': change_point_perc
     })
-    save_report()
+    save_report(report_path)
 
     print("[Step 4] Reducing train_val based on change point")
     start_time = time.time()
@@ -135,7 +151,7 @@ def run(timestamp: str,
         'apply_change_point_process_duration': end_time_process - start_time_process,
         'reduced_train_val.shape': reduced_train_val.shape,
     })
-    save_report()
+    save_report(report_path)
 
     print("[Step 5] Splitting train_val into train and val")
     reduced_train, reduced_val = split_train_test(reduced_train_val)
@@ -143,7 +159,7 @@ def run(timestamp: str,
         'reduced_train.shape': reduced_train.shape,
         'reduced_val.shape': reduced_val.shape,
     })
-    save_report()
+    save_report(report_path)
 
     print("[Step 6] Fitting scaler on train and applying on train and val")
     start_time = time.time()
@@ -160,7 +176,7 @@ def run(timestamp: str,
         'fit_apply_scaler_train_val_perf_duration': end_time_perf - start_time_perf,
         'fit_apply_scaler_train_val_process_duration': end_time_process - start_time_process,
     })
-    save_report()
+    save_report(report_path)
 
     print("[Step 7] Splitting train and val into X and y")
     X_reduced_scaled_train, y_reduced_scaled_train = split_X_y(scaled_reduced_train)
@@ -171,7 +187,7 @@ def run(timestamp: str,
         'X_reduced_scaled_val.shape': X_reduced_scaled_val.shape,
         'y_reduced_scaled_val.shape': y_reduced_scaled_val.shape,
     })
-    save_report()
+    save_report(report_path)
 
     print(f"[Step 8] Running HPO and NAS with {forecaster_type.value.upper()} model")
     n_variables = len(variables)
@@ -179,13 +195,14 @@ def run(timestamp: str,
         forecaster_type=forecaster_type,
         n_variables=n_variables
     )
+    # Use unique tuner directory per job to avoid conflicts in parallel execution
     forecaster_tuner = RandomSearch(
         forecaster_hypermodel,
         objective='val_loss',
         max_trials=NB_TRIALS,
         executions_per_trial=1,
         directory=f"outputs/tuner/",
-        project_name=f"tmp_{forecaster_type.value}",
+        project_name=outputs_sub_path,
         seed=SEED,
         overwrite=True,
         distribution_strategy=tf.distribute.MirroredStrategy(),
@@ -208,7 +225,7 @@ def run(timestamp: str,
         'tuner_perf_duration': end_time_perf - start_time_perf,
         'tuner_process_duration': end_time_process - start_time_process,
     })
-    save_report()
+    save_report(report_path)
 
     print("[Step 9] Retrieving best model")
     best_trial = forecaster_tuner.oracle.get_best_trials(num_trials=1)[0]
@@ -230,7 +247,16 @@ def run(timestamp: str,
         'best_trial_score': best_trial.score,
         'best_forecaster_model': best_forecaster_model.summary(),
     })
-    save_report()
+
+    # Clean up tuner directory to save disk space
+    tuner_dir = os.path.join("outputs/tuner", outputs_sub_path)
+    if os.path.exists(tuner_dir):
+        try:
+            shutil.rmtree(tuner_dir)
+            print(f"Cleaned up tuner directory: {tuner_dir}")
+        except Exception as e:
+            print(f"Warning: Could not clean up tuner directory {tuner_dir}: {e}")
+    save_report(report_path)
 
     print("[Step 10] Fitting scaler on train_val and applying on train_val and test")
     start_time = time.time()
@@ -247,18 +273,20 @@ def run(timestamp: str,
         'fit_apply_scaler_train_val_test_perf_duration': end_time_perf - start_time_perf,
         'fit_apply_scaler_train_val_test_process_duration': end_time_process - start_time_process,
     })
-    save_report()
+    save_report(report_path)
 
     print("[Step 11] Splitting train_val and test into X and y")
     X_reduced_scaled_train_val, y_reduced_scaled_train_val = split_X_y(scaled_reduced_train_val)
     X_scaled_test, y_scaled_test = split_X_y(scaled_test)
+    # Create missing mask for y_test to track which values were originally missing
+    y_test_missing_mask = create_missing_mask_for_y(missing_mask_test)
     report.update({
         'X_reduced_scaled_train_val.shape': X_reduced_scaled_train_val.shape,
         'y_reduced_scaled_train_val.shape': y_reduced_scaled_train_val.shape,
         'X_scaled_test.shape': X_scaled_test.shape,
         'y_scaled_test.shape': y_scaled_test.shape,
     })
-    save_report()
+    save_report(report_path)
 
     print("[Step 12] Retraining best model")
     start_time = time.time()
@@ -277,7 +305,7 @@ def run(timestamp: str,
         'retrain_perf_duration': end_time_perf - start_time_perf,
         'retrain_process_duration': end_time_process - start_time_process,
     })
-    save_report()
+    save_report(report_path)
 
     print("[Step 13] Forecasting for test")
     start_time = time.time()
@@ -294,7 +322,7 @@ def run(timestamp: str,
         'forecasting_test_perf_duration': end_time_perf - start_time_perf,
         'forecasting_test_process_duration': end_time_process - start_time_process,
     })
-    save_report()
+    save_report(report_path)
 
     print("[Step 14] Descaling data")
     start_time = time.time()
@@ -310,18 +338,50 @@ def run(timestamp: str,
         'descaling_perf_duration': end_time_perf - start_time_perf,
         'descaling_process_duration': end_time_process - start_time_process,
     })
-    save_report()
+    save_report(report_path)
 
     print("[Step 15] Calculating evaluation metrics")
-    error_results = get_error_results(y_test, y_pred, variables)
-    print(f"Obtained error results: {error_results}")
+    # Flatten the missing mask to match y_test and y_pred shapes
+    y_test_missing_mask_flat = y_test_missing_mask.reshape(-1, n_variables)
+
+    # Calculate metrics on ALL test data (including filled values)
+    error_results_all = get_error_results(y_test, y_pred, variables)
+
+    # Calculate metrics on REAL test data only (excluding filled values)
+    # Keep only rows where ALL variables are real (not missing)
+    # This ensures all variables have the same number of samples
+    real_values_mask = ~y_test_missing_mask_flat
+    rows_all_real = ~y_test_missing_mask_flat.any(axis=1)
+
+    y_test_real = y_test[rows_all_real].reset_index(drop=True)
+    y_pred_real = y_pred[rows_all_real].reset_index(drop=True)
+
+    error_results_real = get_error_results(y_test_real, y_pred_real, variables)
+
+    # Count rows and real vs filled values in test set
+    total_test_rows = len(y_test_missing_mask_flat)
+    rows_with_all_real = rows_all_real.sum()
+    total_test_values = y_test_missing_mask_flat.size
+    filled_test_values = y_test_missing_mask_flat.sum()
+    real_test_values = total_test_values - filled_test_values
+
+    print(f"Evaluation on ALL test data: {error_results_all}")
+    print(f"Evaluation on REAL test data only ({rows_with_all_real}/{total_test_rows} complete rows, {real_test_values}/{total_test_values} real values): {error_results_real}")
+
     report.update({
         'total_time_duration': sum(value for key, value in report.items() if key.endswith('_time_duration')),
         'total_perf_duration': sum(value for key, value in report.items() if key.endswith('_perf_duration')),
         'total_process_duration': sum(value for key, value in report.items() if key.endswith('_process_duration')),
-        'error_results': error_results,
+        'test_total_rows': int(total_test_rows),
+        'test_rows_all_real': int(rows_with_all_real),
+        'test_total_values': int(total_test_values),
+        'test_real_values': int(real_test_values),
+        'test_filled_values': int(filled_test_values),
+        'test_filled_pct': float((filled_test_values / total_test_values * 100) if total_test_values > 0 else 0),
+        'error_results_all': error_results_all,
+        'error_results_real_only': error_results_real,
     })
-    save_report()
+    save_report(report_path)
 
     print("Finished execution")
 

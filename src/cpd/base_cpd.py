@@ -4,7 +4,7 @@ This module contains the base class that all change point detector implementatio
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Tuple, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING, Union
 
 import numpy as np
 import pandas as pd
@@ -30,7 +30,7 @@ class BaseCPDDetector(ABC):
         """
         self.cost_function = cost_function
 
-    def get_stack(self, df: pd.DataFrame, variables: List[str]) -> np.ndarray:
+    def get_stack(self, df: Union[pd.Series, pd.DataFrame], variables: List[str]) -> np.ndarray:
         """Stack multiple variable columns into a numpy array.
 
         Args:
@@ -46,7 +46,9 @@ class BaseCPDDetector(ABC):
         return np.vstack(stack_list).T
 
     @abstractmethod
-    def find_change_point(self, df: pd.DataFrame, variables: List[str]) -> Tuple[int, float]:
+    def find_change_point(
+        self, df: Union[pd.Series, pd.DataFrame], variables: List[str]
+    ) -> Tuple[int, float]:
         """Find the change point in the time series.
 
         This method must be implemented by subclasses.
@@ -60,7 +62,9 @@ class BaseCPDDetector(ABC):
         """
         pass
 
-    def apply_change_point(self, df: pd.DataFrame, change_point: int) -> pd.DataFrame:
+    def apply_change_point(
+        self, df: Union[pd.Series, pd.DataFrame], change_point: int
+    ) -> Union[pd.Series, pd.DataFrame]:
         """Apply the change point by truncating the DataFrame.
 
         Args:

@@ -4,15 +4,21 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.data_reader import fill_na, read_dataset, split_train_test, split_X_y
+from src.data_reader import (
+    create_missing_mask_for_y,
+    fill_na,
+    read_dataset,
+    split_train_test,
+    split_X_y,
+)
 from src.data_reader.factory import DatasetDomain, DummyDatasets
 
 
 class TestFillNA:
     """Tests for the fill_na function to ensure no data leakage."""
 
-    def test_fill_na_forward_only(self):
-        """Test that forward interpolation doesn't use future data."""
+    def test_fill_na_forward_fill(self):
+        """Test that forward fill doesn't use future data."""
         # Create DataFrame with missing value in the middle
         df = pd.DataFrame(
             {
@@ -21,14 +27,17 @@ class TestFillNA:
             }
         )
 
-        result = fill_na(df, ["var1"], limit_direction="forward")
+        result, missing_mask = fill_na(df, ["var1"])
 
-        # With forward interpolation, NaN should be filled with 3.0 (linear between 2 and 4)
-        assert result["var1"].iloc[2] == 3.0
+        # With forward fill, NaN should be filled with 2.0 (last valid value)
+        assert result["var1"].iloc[2] == 2.0
         assert result["var1"].isna().sum() == 0
+        # Missing mask should track the originally missing value
+        assert missing_mask["var1"].iloc[2] == True
+        assert missing_mask["var1"].sum() == 1
 
-    def test_fill_na_backward_only(self):
-        """Test backward interpolation."""
+    def test_fill_na_returns_tuple(self):
+        """Test that fill_na returns both filled data and missing mask."""
         df = pd.DataFrame(
             {
                 "date": pd.date_range("2020-01-01", periods=5),
@@ -36,26 +45,30 @@ class TestFillNA:
             }
         )
 
-        result = fill_na(df, ["var1"], limit_direction="backward")
+        result = fill_na(df, ["var1"])
 
-        # Backward interpolation should still fill the middle value
-        assert result["var1"].iloc[2] == 3.0
-        assert result["var1"].isna().sum() == 0
+        # Should return a tuple
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+        filled_df, missing_mask = result
+        assert isinstance(filled_df, pd.DataFrame)
+        assert isinstance(missing_mask, pd.DataFrame)
 
-    def test_fill_na_both_directions(self):
-        """Test bidirectional interpolation."""
+    def test_fill_na_missing_mask_shape(self):
+        """Test that missing mask has correct shape."""
         df = pd.DataFrame(
             {
                 "date": pd.date_range("2020-01-01", periods=5),
                 "var1": [1.0, np.nan, 3.0, np.nan, 5.0],
+                "var2": [10.0, 20.0, np.nan, 40.0, 50.0],
             }
         )
 
-        result = fill_na(df, ["var1"], limit_direction="both")
+        filled_df, missing_mask = fill_na(df, ["var1", "var2"])
 
-        assert result["var1"].iloc[1] == 2.0
-        assert result["var1"].iloc[3] == 4.0
-        assert result["var1"].isna().sum() == 0
+        # Missing mask should have same shape as variables (excluding date)
+        assert missing_mask.shape == (5, 2)
+        assert list(missing_mask.columns) == ["var1", "var2"]
 
     def test_fill_na_removes_leading_nans(self):
         """Test that leading NaN rows are removed."""
@@ -66,11 +79,12 @@ class TestFillNA:
             }
         )
 
-        result = fill_na(df, ["var1"], limit_direction="forward")
+        result, missing_mask = fill_na(df, ["var1"])
 
         # Should remove first 2 rows with leading NaNs
         assert len(result) == 3
         assert result["var1"].iloc[0] == 3.0
+        assert len(missing_mask) == 3
 
     def test_fill_na_multiple_variables(self):
         """Test filling NaN for multiple variables."""
@@ -82,36 +96,34 @@ class TestFillNA:
             }
         )
 
-        result = fill_na(df, ["var1", "var2"], limit_direction="both")
+        result, missing_mask = fill_na(df, ["var1", "var2"])
 
-        assert result["var1"].iloc[1] == 2.0
-        assert result["var2"].iloc[2] == 30.0
+        # With forward fill: NaN filled with last valid value
+        assert result["var1"].iloc[1] == 1.0  # carries forward from 1.0
+        assert result["var2"].iloc[2] == 20.0  # carries forward from 20.0
         assert result["var1"].isna().sum() == 0
         assert result["var2"].isna().sum() == 0
+        # Check missing mask
+        assert missing_mask["var1"].iloc[1] == True
+        assert missing_mask["var2"].iloc[2] == True
 
     def test_fill_na_no_data_leakage(self):
-        """Critical test: ensure train data doesn't use test data."""
-        # Simulate train/test split scenario
-        full_data = pd.DataFrame(
+        """Critical test: ensure forward fill doesn't use future data."""
+        df = pd.DataFrame(
             {
                 "date": pd.date_range("2020-01-01", periods=10),
                 "var1": [1.0, 2.0, np.nan, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
             }
         )
 
-        # Split data
-        train = full_data.iloc[:7].copy()
-        test = full_data.iloc[7:].copy()
+        result, missing_mask = fill_na(df, ["var1"])
 
-        # Fill train with forward only (no future leakage)
-        train_filled = fill_na(train, ["var1"], limit_direction="forward")
+        # The NaN at index 2 should be filled with 2.0 (last valid value before it)
+        # NOT 3.0 (interpolation) or 4.0 (future value)
+        assert result["var1"].iloc[2] == 2.0
 
-        # The NaN at index 2 should be filled with value between 2 and 4
-        assert train_filled["var1"].iloc[2] == 3.0
-
-        # Verify it didn't use any information from test set
-        assert len(train_filled) == 7
-        assert train_filled["var1"].max() <= 7.0
+        # Verify it only uses past values
+        assert result["var1"].iloc[2] <= 2.0
 
     def test_fill_na_preserves_original_dataframe(self):
         """Test that fill_na doesn't modify the original DataFrame."""
@@ -123,7 +135,7 @@ class TestFillNA:
         )
 
         original_na_count = df["var1"].isna().sum()
-        result = fill_na(df, ["var1"], limit_direction="forward")
+        result, _ = fill_na(df, ["var1"])
 
         # Original should still have NaN
         assert df["var1"].isna().sum() == original_na_count
@@ -171,6 +183,125 @@ class TestSplitTrainTest:
         test_ids = set(test["id"])
 
         assert len(train_ids & test_ids) == 0  # No overlap
+
+
+class TestCreateMissingMaskForY:
+    """Tests for the create_missing_mask_for_y function."""
+
+    def test_create_missing_mask_for_y_shape(self):
+        """Test that the output mask has correct shape matching y from split_X_y."""
+        missing_mask = pd.DataFrame(
+            {
+                "var1": [False] * 100,
+                "var2": [False] * 100,
+            }
+        )
+
+        y_mask = create_missing_mask_for_y(missing_mask)
+
+        assert y_mask.ndim == 3
+        assert y_mask.shape[1] == 7
+        assert y_mask.shape[2] == 2
+
+    def test_create_missing_mask_for_y_with_date_column(self):
+        """Test that date column is properly dropped (line 132-133)."""
+        missing_mask = pd.DataFrame(
+            {
+                "ds": [pd.Timestamp("2020-01-01")] * 100,
+                "var1": [False] * 100,
+                "var2": [False] * 100,
+            }
+        )
+
+        y_mask = create_missing_mask_for_y(missing_mask)
+
+        assert y_mask.shape[2] == 2
+        assert y_mask.ndim == 3
+
+    def test_create_missing_mask_for_y_without_date_column(self):
+        """Test with missing mask that doesn't have date column."""
+        missing_mask = pd.DataFrame(
+            {
+                "var1": [False] * 100,
+                "var2": [False] * 100,
+            }
+        )
+
+        y_mask = create_missing_mask_for_y(missing_mask)
+
+        assert y_mask.shape[2] == 2
+        assert y_mask.ndim == 3
+
+    def test_create_missing_mask_for_y_values(self):
+        """Test that mask values are correctly extracted for forecast horizon."""
+        missing_mask = pd.DataFrame(
+            {
+                "var1": [False] * 50 + [True] * 50,
+            }
+        )
+
+        y_mask = create_missing_mask_for_y(missing_mask)
+
+        assert y_mask[0, 0, 0] == False
+        last_sample_idx = len(y_mask) - 1
+        assert y_mask[last_sample_idx, 0, 0] == True
+
+    def test_create_missing_mask_for_y_temporal_alignment(self):
+        """Test that mask aligns with forecast horizon windows (lines 134-140)."""
+        missing_mask = pd.DataFrame(
+            {
+                "var1": [i % 2 == 0 for i in range(100)],
+            }
+        )
+
+        y_mask = create_missing_mask_for_y(missing_mask)
+
+        first_y_window = missing_mask.iloc[14:21]["var1"].values
+        assert np.array_equal(y_mask[0, :, 0], first_y_window)
+
+    def test_create_missing_mask_for_y_multiple_variables(self):
+        """Test with multiple variables."""
+        missing_mask = pd.DataFrame(
+            {
+                "var1": [False] * 100,
+                "var2": [True if i % 10 == 0 else False for i in range(100)],
+                "var3": [False] * 50 + [True] * 50,
+            }
+        )
+
+        y_mask = create_missing_mask_for_y(missing_mask)
+
+        assert y_mask.shape[2] == 3
+        assert y_mask[:, :, 0].sum() == 0
+        assert y_mask[:, :, 1].sum() > 0
+        assert y_mask[:, :, 2].sum() > 0
+
+    def test_create_missing_mask_for_y_returns_numpy_array(self):
+        """Test that function returns numpy array."""
+        missing_mask = pd.DataFrame(
+            {
+                "var1": [False] * 100,
+            }
+        )
+
+        y_mask = create_missing_mask_for_y(missing_mask)
+
+        assert isinstance(y_mask, np.ndarray)
+        assert y_mask.dtype == bool
+
+    def test_create_missing_mask_for_y_number_of_samples(self):
+        """Test that number of samples matches split_X_y logic."""
+        n_rows = 100
+        missing_mask = pd.DataFrame(
+            {
+                "var1": [False] * n_rows,
+            }
+        )
+
+        y_mask = create_missing_mask_for_y(missing_mask)
+
+        expected_samples = n_rows - 14 - 7 + 1
+        assert y_mask.shape[0] == expected_samples
 
 
 class TestSplitXY:

@@ -6,7 +6,14 @@ import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.keras.models import Model
 
-from config.constants import FORECAST_HORIZON, OBSERVATION_WINDOW
+from config.constants import (
+    FORECAST_HORIZON,
+    FORECASTER_LOSS,
+    HP_DROPOUT_RATES,
+    HP_LEARNING_RATES,
+    HP_MODEL_DIMS,
+    OBSERVATION_WINDOW,
+)
 from src.forecaster.base_forecaster import BaseForecasterHyperModel
 from src.forecaster.model_architectures import (
     PositionalEncoding,
@@ -19,15 +26,15 @@ def build_transformer_model(
     observation_window,
     n_variables,
     forecast_horizon,
-    embed_dim=64,
-    num_heads=4,
-    num_transformer_blocks=2,
-    ff_dim=128,
-    dropout_rate=0.1,
-    learning_rate=1e-3,
-    use_decomposition=True,
-    decomp_kernel_size=25,
-    use_sparse_attention=True,
+    embed_dim,
+    num_heads,
+    num_transformer_blocks,
+    ff_dim,
+    dropout_rate,
+    learning_rate,
+    use_decomposition,
+    decomp_kernel_size,
+    use_sparse_attention,
 ):
     """Build a Transformer-based forecasting model with seasonal-trend decomposition.
 
@@ -55,11 +62,9 @@ def build_transformer_model(
     inputs = layers.Input(shape=(observation_window, n_variables))
 
     if use_decomposition:
-        # Seasonal-Trend Decomposition (50-80% performance boost per survey paper)
         decomp = SeasonalTrendDecomposition(kernel_size=decomp_kernel_size)
         seasonal, trend = decomp(inputs)
 
-        # Process seasonal component with Transformer (captures periodic patterns)
         x_seasonal = layers.Dense(embed_dim)(seasonal)
         x_seasonal = PositionalEncoding()(x_seasonal)
 
@@ -71,17 +76,14 @@ def build_transformer_model(
         x_seasonal = layers.GlobalAveragePooling1D()(x_seasonal)
         x_seasonal = layers.Dropout(dropout_rate)(x_seasonal)
 
-        # Process trend component separately (simpler patterns)
         x_trend = layers.Dense(embed_dim // 2)(trend)
         x_trend = layers.GlobalAveragePooling1D()(x_trend)
         x_trend = layers.Dropout(dropout_rate)(x_trend)
 
-        # Combine seasonal and trend representations
         x = layers.Concatenate()([x_seasonal, x_trend])
         combined_dim = embed_dim + embed_dim // 2
 
     else:
-        # Standard transformer without decomposition (baseline)
         x = layers.Dense(embed_dim)(inputs)
         x = PositionalEncoding()(x)
 
@@ -94,7 +96,6 @@ def build_transformer_model(
         x = layers.Dropout(dropout_rate)(x)
         combined_dim = embed_dim
 
-    # Output projection
     x = layers.Dense(max(256, combined_dim), activation="relu")(x)
     x = layers.Dropout(dropout_rate)(x)
     x = layers.Dense(n_variables * forecast_horizon)(x)
@@ -103,7 +104,7 @@ def build_transformer_model(
     model = Model(inputs=inputs, outputs=outputs)
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate, clipnorm=1.0),
-        loss="mean_squared_error",
+        loss=FORECASTER_LOSS,
     )
 
     return model
@@ -123,14 +124,16 @@ class TransformerForecasterHyperModel(BaseForecasterHyperModel):
         """Build and compile a Transformer model based on provided hyperparameters.
 
         The model architecture is determined by the following hyperparameters:
-          - 'embed_dim': Embedding dimension (32, 64, 128).
-          - 'num_heads': Number of attention heads (2, 4, 8).
-          - 'num_transformer_blocks': Number of transformer encoder blocks (1-3).
-          - 'ff_dim': Feed-forward network dimension (64, 128, 256).
-          - 'dropout_rate': Dropout rate for regularization (0.1-0.3).
+          - 'embed_dim': Embedding dimension.
+          - 'num_heads': Number of attention heads.
+          - 'num_transformer_blocks': Number of transformer encoder blocks.
+          - 'ff_dim': Feed-forward network dimension.
+          - 'dropout_rate': Dropout rate for regularization.
           - 'learning_rate': Learning rate for the Adam optimizer.
-          - 'use_decomposition': Whether to use seasonal-trend decomposition (True/False).
-          - 'decomp_kernel_size': Kernel size for decomposition (if enabled).
+          - 'use_sparse_attention': Whether to use sparse attention for efficiency.
+
+        Note: Seasonal-trend decomposition  is always enabled
+        based on survey paper findings (50-80% performance boost).
 
         Args:
             hp (Any): Hyperparameters used for model tuning.
@@ -138,16 +141,15 @@ class TransformerForecasterHyperModel(BaseForecasterHyperModel):
         Returns:
             Model: A compiled Keras Model.
         """
-        embed_dim = hp.Choice("embed_dim", [32, 64, 128])
-        num_heads = hp.Choice("num_heads", [2, 4, 8])
+        embed_dim = hp.Choice("embed_dim", HP_MODEL_DIMS)
+        num_heads = hp.Choice("num_heads", [4, 8])
         num_blocks = hp.Int("num_transformer_blocks", 1, 3)
-        ff_dim = hp.Choice("ff_dim", [64, 128, 256])
-        dropout_rate = hp.Float("dropout_rate", 0.1, 0.3, step=0.1)
-        learning_rate = hp.Choice("learning_rate", [1e-2, 5e-3, 1e-3, 5e-4, 1e-4])
+        ff_dim = hp.Choice("ff_dim", [128, 256])
+        dropout_rate = hp.Choice("dropout_rate", HP_DROPOUT_RATES)
+        learning_rate = hp.Choice("learning_rate", HP_LEARNING_RATES)
 
-        # SOTA features from survey paper
-        use_decomposition = hp.Boolean("use_decomposition", default=True)
-        decomp_kernel_size = hp.Choice("decomp_kernel_size", [13, 25, 37])
+        use_decomposition = True
+        decomp_kernel_size = 25
         use_sparse_attention = hp.Boolean("use_sparse_attention", default=False)
 
         model = build_transformer_model(

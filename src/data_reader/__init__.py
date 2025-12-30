@@ -13,7 +13,13 @@ from src.data_reader.factory import (
     TCPDDatasets,
     UCIDatasets,
 )
-from src.data_reader.utils import fill_na, read_dataset, split_train_test, split_X_y
+from src.data_reader.utils import (
+    create_missing_mask_for_y,
+    fill_na,
+    read_dataset,
+    split_train_test,
+    split_X_y,
+)
 
 __all__ = [
     "DatasetDomain",
@@ -27,6 +33,7 @@ __all__ = [
     "split_train_test",
     "split_X_y",
     "fill_na",
+    "create_missing_mask_for_y",
     "rolling_window_split",
     "simple_rolling_window_split",
 ]

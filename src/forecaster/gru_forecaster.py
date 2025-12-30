@@ -1,8 +1,8 @@
-"""LSTM-based forecaster implementation."""
+"""GRU-based forecaster implementation."""
 
 from typing import Any
 
-from tensorflow.keras.layers import BatchNormalization, Dense, Input, LSTM, Reshape
+from tensorflow.keras.layers import BatchNormalization, Dense, GRU, Input, Reshape
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
@@ -19,7 +19,7 @@ from config.constants import (
 from src.forecaster.base_forecaster import BaseForecasterHyperModel
 
 
-def build_lstm_model(
+def build_gru_model(
     observation_window,
     n_variables,
     forecast_horizon,
@@ -30,19 +30,21 @@ def build_lstm_model(
     l2_reg,
     learning_rate,
 ):
-    """Build an LSTM-based forecasting model.
+    """Build a GRU-based forecasting model.
 
-    This implementation uses stacked LSTM layers with dropout, recurrent dropout,
-    L2 regularization, and batch normalization for improved training stability.
+    GRU (Gated Recurrent Unit) is a simplified variant of LSTM with fewer parameters
+    and faster training, often achieving comparable performance. This implementation
+    uses stacked GRU layers with dropout, recurrent dropout, L2 regularization,
+    and batch normalization for improved training stability.
 
     Args:
         observation_window (int): Number of time steps in input sequence.
         n_variables (int): Number of variables/features per time step.
         forecast_horizon (int): Number of time steps to forecast.
-        num_layers (int): Number of LSTM layers (1-3).
-        units (int): Number of units in each LSTM layer.
-        dropout_rate (float): Dropout rate for LSTM layers.
-        recurrent_dropout_rate (float): Recurrent dropout rate for LSTM layers.
+        num_layers (int): Number of GRU layers (1-3).
+        units (int): Number of units in each GRU layer.
+        dropout_rate (float): Dropout rate for GRU layers.
+        recurrent_dropout_rate (float): Recurrent dropout rate for GRU layers.
         l2_reg (float): L2 regularization strength.
         learning_rate (float): Learning rate for optimizer.
 
@@ -56,7 +58,7 @@ def build_lstm_model(
         return_seq = True if i < num_layers - 1 else False
 
         model.add(
-            LSTM(
+            GRU(
                 units=units,
                 return_sequences=return_seq,
                 dropout=dropout_rate,
@@ -76,12 +78,17 @@ def build_lstm_model(
     return model
 
 
-class LSTMForecasterHyperModel(BaseForecasterHyperModel):
-    """A HyperModel for building and training LSTM-based time series forecasting models.
+class GRUForecasterHyperModel(BaseForecasterHyperModel):
+    """A HyperModel for building and training GRU-based time series forecasting models.
 
     This HyperModel constructs a Keras Sequential model with a configurable number of
-    LSTM layers and a Dense output layer. The model architecture and training parameters
+    GRU layers and a Dense output layer. The model architecture and training parameters
     are optimized using Keras Tuner.
+
+    GRU offers similar capabilities to LSTM but with:
+    - Fewer parameters (faster training and less memory)
+    - Simpler architecture (no separate cell state)
+    - Often comparable performance on many tasks
 
     Attributes:
         n_variables (int): The number of variables in the time series data.
@@ -91,9 +98,9 @@ class LSTMForecasterHyperModel(BaseForecasterHyperModel):
         """Build and compile a Keras Sequential model based on provided hyperparameters.
 
         The model architecture is determined by the following hyperparameters:
-          - 'num_layers': Number of LSTM layers (1-3).
-          - 'units': Number of units in each LSTM layer (64, 128).
-          - 'dropout_rate': Dropout rate for LSTM layers (0.1, 0.2).
+          - 'num_layers': Number of GRU layers (1-3).
+          - 'units': Number of units in each GRU layer (64, 128, 256).
+          - 'dropout_rate': Dropout rate for GRU layers (0.1, 0.2).
           - 'recurrent_dropout_rate': Recurrent dropout rate (0.1, 0.2).
           - 'l2_reg': L2 regularization strength (1e-4, 1e-3).
           - 'learning_rate': Learning rate for the Adam optimizer (1e-2, 1e-3, 1e-4).
@@ -113,7 +120,7 @@ class LSTMForecasterHyperModel(BaseForecasterHyperModel):
         l2_reg = hp.Choice("l2_reg", HP_L2_REG)
         learning_rate = hp.Choice("learning_rate", HP_LEARNING_RATES)
 
-        model = build_lstm_model(
+        model = build_gru_model(
             observation_window=OBSERVATION_WINDOW,
             n_variables=self.n_variables,
             forecast_horizon=FORECAST_HORIZON,

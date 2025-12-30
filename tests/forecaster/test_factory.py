@@ -5,8 +5,9 @@ import pytest
 from src.forecaster import (
     ForecasterFactory,
     ForecasterType,
+    GRUForecasterHyperModel,
     LSTMForecasterHyperModel,
-    SSMForecasterHyperModel,
+    TCNForecasterHyperModel,
     TransformerForecasterHyperModel,
 )
 
@@ -16,9 +17,10 @@ class TestForecasterType:
 
     def test_forecaster_type_from_str(self):
         """Test converting string to ForecasterType."""
+        assert ForecasterType.from_str("GRU") == ForecasterType.GRU
         assert ForecasterType.from_str("LSTM") == ForecasterType.LSTM
+        assert ForecasterType.from_str("TCN") == ForecasterType.TCN
         assert ForecasterType.from_str("Transformer") == ForecasterType.TRANSFORMER
-        assert ForecasterType.from_str("SSM") == ForecasterType.SSM
 
     def test_forecaster_type_from_str_invalid(self):
         """Test invalid forecaster type string."""
@@ -35,10 +37,11 @@ class TestForecasterType:
         """Test listing available forecaster types."""
         forecaster_types = ForecasterType.list_available()
 
+        assert "GRU" in forecaster_types
         assert "LSTM" in forecaster_types
+        assert "TCN" in forecaster_types
         assert "Transformer" in forecaster_types
-        assert "SSM" in forecaster_types
-        assert len(forecaster_types) == 3
+        assert len(forecaster_types) == 4
 
 
 class TestForecasterFactory:
@@ -58,11 +61,18 @@ class TestForecasterFactory:
         assert isinstance(forecaster, TransformerForecasterHyperModel)
         assert forecaster.n_variables == 2
 
-    def test_create_ssm_forecaster(self):
-        """Test creating SSM forecaster."""
-        forecaster = ForecasterFactory.create_forecaster(ForecasterType.SSM, n_variables=1)
+    def test_create_gru_forecaster(self):
+        """Test creating GRU forecaster."""
+        forecaster = ForecasterFactory.create_forecaster(ForecasterType.GRU, n_variables=2)
 
-        assert isinstance(forecaster, SSMForecasterHyperModel)
+        assert isinstance(forecaster, GRUForecasterHyperModel)
+        assert forecaster.n_variables == 2
+
+    def test_create_ssm_forecaster(self):
+        """Test creating TCN forecaster."""
+        forecaster = ForecasterFactory.create_forecaster(ForecasterType.TCN, n_variables=1)
+
+        assert isinstance(forecaster, TCNForecasterHyperModel)
         assert forecaster.n_variables == 1
 
     def test_create_forecaster_with_different_n_variables(self):
@@ -80,9 +90,10 @@ class TestForecasterFactory:
     def test_get_model_class_all_types(self):
         """Test getting all forecaster classes."""
         test_cases = [
+            (ForecasterType.GRU, GRUForecasterHyperModel),
             (ForecasterType.LSTM, LSTMForecasterHyperModel),
+            (ForecasterType.TCN, TCNForecasterHyperModel),
             (ForecasterType.TRANSFORMER, TransformerForecasterHyperModel),
-            (ForecasterType.SSM, SSMForecasterHyperModel),
         ]
 
         for forecaster_type, expected_class in test_cases:
@@ -93,10 +104,11 @@ class TestForecasterFactory:
         """Test listing available forecaster models."""
         models = ForecasterFactory.list_available_models()
 
+        assert ForecasterType.GRU in models
         assert ForecasterType.LSTM in models
+        assert ForecasterType.TCN in models
         assert ForecasterType.TRANSFORMER in models
-        assert ForecasterType.SSM in models
-        assert len(models) == 3
+        assert len(models) == 4
 
     def test_create_forecaster_invalid_type(self):
         """Test creating forecaster with invalid type raises error."""
@@ -123,9 +135,10 @@ class TestForecasterIntegration:
     def test_factory_creates_correct_forecaster_types(self):
         """Test that factory creates correct forecaster instances."""
         test_cases = [
+            (ForecasterType.GRU, GRUForecasterHyperModel),
             (ForecasterType.LSTM, LSTMForecasterHyperModel),
+            (ForecasterType.TCN, TCNForecasterHyperModel),
             (ForecasterType.TRANSFORMER, TransformerForecasterHyperModel),
-            (ForecasterType.SSM, SSMForecasterHyperModel),
         ]
 
         for forecaster_type, expected_class in test_cases:

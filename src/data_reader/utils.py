@@ -5,7 +5,7 @@ splitting data into train/test sets, and preparing data for time series forecast
 """
 
 import math
-from typing import List, Literal, Tuple, Union
+from typing import List, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -23,35 +23,38 @@ from src.data_reader.factory import (
 
 
 def fill_na(
-    df: pd.DataFrame,
+    df: Union[pd.Series, pd.DataFrame],
     variables: List[str],
-    limit_direction: Literal["forward", "backward", "both"] = "forward",
-) -> pd.DataFrame:
-    """Fill missing values in specified columns of the DataFrame using linear interpolation.
+) -> Tuple[Union[pd.Series, pd.DataFrame], Union[pd.Series, pd.DataFrame]]:
+    """Fill missing values in specified columns using forward fill (last observation carried forward).
 
-    IMPORTANT: This function should be called separately on train and test sets AFTER splitting
-    to avoid data leakage. Use limit_direction='forward' for training data and 'both' for test data.
+    This function uses forward fill (ffill) to avoid data leakage in time series data.
+    Missing values are filled using only past observations, never future values.
+
+    IMPORTANT: This function should be called BEFORE splitting to ensure consistent preprocessing
+    across train and test sets while still avoiding data leakage (forward fill only uses past values).
 
     Args:
         df (pd.DataFrame): The DataFrame containing the data.
         variables (List[str]): List of column names to fill missing values.
-        limit_direction (Literal["forward", "backward", "both"]): Direction for interpolation.
-            'forward' only interpolates forward (no future leakage), 'backward' only backward,
-            'both' in both directions. Default is 'forward' to prevent data leakage in time series.
 
     Returns:
-        pd.DataFrame: The DataFrame with missing values filled in the specified columns.
+        Tuple[pd.DataFrame, pd.DataFrame]: A tuple containing:
+            - The DataFrame with missing values filled in the specified columns.
+            - A boolean mask DataFrame indicating which values were originally missing (True = was missing).
     """
     df = df.copy()
-    first_valid_index = 0
+
+    missing_mask = df[variables].isna()
+
     for variable in variables:
-        df[variable] = df[variable].interpolate(method="linear", limit_direction=limit_direction)
-        first_valid_index = max(first_valid_index, df[variable].first_valid_index())
+        df[variable] = df[variable].ffill()
 
-    if first_valid_index > 0:
-        df = df.iloc[first_valid_index:].reset_index(drop=True)
+    rows_to_keep = ~df[variables].isna().any(axis=1)  # type: ignore
+    df = df[rows_to_keep].reset_index(drop=True)
+    missing_mask = missing_mask[rows_to_keep].reset_index(drop=True)
 
-    return df
+    return df, missing_mask
 
 
 def read_dataset(
@@ -59,7 +62,7 @@ def read_dataset(
     dataset: Union[
         str, INMETDatasets, AUTOFORMERDatasets, UCIDatasets, TCPDDatasets, DummyDatasets
     ],
-) -> Tuple[pd.DataFrame, List[str]]:
+) -> Tuple[Union[pd.Series, pd.DataFrame], List[str]]:
     """Read a dataset based on the provided domain and dataset identifiers.
 
     The CSV file is expected to be located in the "datasets/{dataset_domain}" directory.
@@ -78,11 +81,9 @@ def read_dataset(
     Raises:
         ValueError: If the dataset domain or dataset is not recognized.
     """
-    # Convert string to DatasetDomain enum if needed
     if isinstance(dataset_domain, str):
         dataset_domain = DatasetDomain.from_str(dataset_domain)
 
-    # Convert string to appropriate dataset enum if needed
     if isinstance(dataset, str):
         dataset = DataReaderFactory.get_dataset(dataset_domain, dataset)
 
@@ -96,7 +97,9 @@ def read_dataset(
     return df, variables
 
 
-def split_train_test(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def split_train_test(
+    df: Union[pd.Series, pd.DataFrame]
+) -> Tuple[Union[pd.Series, pd.DataFrame], Union[pd.Series, pd.DataFrame]]:
     """Split the DataFrame into training and testing sets based on a predefined training percentage.
 
     Args:
@@ -111,7 +114,33 @@ def split_train_test(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     return train, test
 
 
-def split_X_y(df: pd.DataFrame) -> Tuple[np.array, np.array]:
+def create_missing_mask_for_y(
+    missing_mask: Union[pd.Series, pd.DataFrame],
+) -> np.ndarray:
+    """Create a missing value mask for the y values (forecast targets) from split_X_y.
+
+    This function processes the missing mask to match the shape of y values created by split_X_y.
+    It extracts the forecast horizon portion for each window to track which target values were originally missing.
+
+    Args:
+        missing_mask (pd.DataFrame): Boolean mask indicating missing values (True = was missing).
+
+    Returns:
+        np.ndarray: Boolean mask array with shape matching y from split_X_y (n_samples, FORECAST_HORIZON, n_features).
+    """
+    y_masks = []
+    if DATE_COLUMN in missing_mask.columns:
+        missing_mask = missing_mask.drop(columns=DATE_COLUMN)
+    for i in range(len(missing_mask) - OBSERVATION_WINDOW - FORECAST_HORIZON + 1):
+        y_masks.append(
+            missing_mask.iloc[
+                i + OBSERVATION_WINDOW : i + OBSERVATION_WINDOW + FORECAST_HORIZON
+            ].values
+        )
+    return np.array(y_masks)
+
+
+def split_X_y(df: Union[pd.Series, pd.DataFrame]) -> Tuple[np.array, np.array]:
     """Split the DataFrame into feature and target arrays for time series forecasting.
 
     The function drops the DATE_COLUMN (if present) and generates samples based on OBSERVATION_WINDOW and FORECAST_HORIZON.

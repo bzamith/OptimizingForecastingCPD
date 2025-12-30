@@ -10,17 +10,19 @@ from typing import Type, TYPE_CHECKING
 from src.forecaster.base_forecaster import BaseForecasterHyperModel
 
 if TYPE_CHECKING:
+    from src.forecaster.gru_forecaster import GRUForecasterHyperModel
     from src.forecaster.lstm_forecaster import LSTMForecasterHyperModel
-    from src.forecaster.ssm_forecaster import SSMForecasterHyperModel
+    from src.forecaster.tcn_forecaster import TCNForecasterHyperModel
     from src.forecaster.transformer_forecaster import TransformerForecasterHyperModel
 
 
 class ForecasterType(Enum):
     """Enumeration of available forecasting forecaster types."""
 
+    GRU = "GRU"
     LSTM = "LSTM"
+    TCN = "TCN"
     TRANSFORMER = "Transformer"
-    SSM = "SSM"
 
     @classmethod
     def from_str(cls, forecaster_type_str: str) -> "ForecasterType":
@@ -63,16 +65,18 @@ class ForecasterFactory:
     @staticmethod
     def _get_forecaster_registry():
         """Lazy load the forecaster registry to avoid circular imports."""
+        from src.forecaster.gru_forecaster import GRUForecasterHyperModel  # noqa: F811
         from src.forecaster.lstm_forecaster import LSTMForecasterHyperModel  # noqa: F811
-        from src.forecaster.ssm_forecaster import SSMForecasterHyperModel  # noqa: F811
+        from src.forecaster.tcn_forecaster import TCNForecasterHyperModel  # noqa: F811
         from src.forecaster.transformer_forecaster import (  # noqa: F811
             TransformerForecasterHyperModel,
         )
 
         return {
+            ForecasterType.GRU: GRUForecasterHyperModel,
             ForecasterType.LSTM: LSTMForecasterHyperModel,
+            ForecasterType.TCN: TCNForecasterHyperModel,
             ForecasterType.TRANSFORMER: TransformerForecasterHyperModel,
-            ForecasterType.SSM: SSMForecasterHyperModel,
         }
 
     @classmethod

@@ -1,10 +1,17 @@
-SEED = 1001
+SEED = 0
 
 DATE_COLUMN = 'ds'
 
 TRAIN_PERC = 0.8
-NB_TRIALS = 30
+NB_TRIALS = 15
 
 FORECASTER_LOSS = 'mean_squared_error'
 FORECAST_HORIZON = 7
 OBSERVATION_WINDOW = 14
+EARLY_STOPPING_PATIENCE = 7
+
+# Common hyperparameter search spaces
+HP_DROPOUT_RATES = [0.1, 0.2]
+HP_LEARNING_RATES = [1e-2, 1e-3, 1e-4]
+HP_MODEL_DIMS = [64, 128, 256]
+HP_L2_REG = [1e-4, 1e-3]
