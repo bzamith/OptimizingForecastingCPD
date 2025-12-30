@@ -2,7 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 
-inputdir = '/Users/zamith/Downloads/2007'
+inputdir = '/Users/zamith/Downloads/2025'
 
 for filename in os.listdir(inputdir):
 	if filename.endswith('.CSV'):
