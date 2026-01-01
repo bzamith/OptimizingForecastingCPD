@@ -113,11 +113,9 @@ class AUTOFORMERDatasets(Enum):
 
     Attributes:
         WEATHER (tuple): Tuple with the filename "weather.csv" and a list of columns
-            ["p (mbar)", "T (degC)", "Tpot (K)", "Tdew (degC)", "rh (%)"
-            "VPmax (mbar)", "VPact (mbar)", "VPdef (mbar)", "sh (g/kg)",
-            "H2OC (mmol/mol)", "rho (g/m**3)", "wv (m/s)", "max. wv (m/s)",
-            "wd (deg)", "rain (mm)", "raining (s)", "SWDR (W/m**2)",
-            "PAR (μmol/m**2/s)", "max. PAR (μmol/m**2/s)", "Tlog (degC)", "OT"].
+            ["p (mbar)", "T (degC)", "rh (%)"
+            "VPact (mbar)", "rho (g/m**3)", "wv (m/s)",
+            "rain (mm)", "SWDR (W/m**2)"].
     """
 
     WEATHER = (
@@ -125,25 +123,12 @@ class AUTOFORMERDatasets(Enum):
         [
             "p (mbar)",
             "T (degC)",
-            "Tpot (K)",
-            "Tdew (degC)",
             "rh (%)",
-            "VPmax (mbar)",
             "VPact (mbar)",
-            "VPdef (mbar)",
-            "sh (g/kg)",
-            "H2OC (mmol/mol)",
             "rho (g/m**3)",
             "wv (m/s)",
-            "max. wv (m/s)",
-            "wd (deg)",
             "rain (mm)",
-            "raining (s)",
             "SWDR (W/m**2)",
-            "PAR (μmol/m**2/s)",
-            "max. PAR (μmol/m**2/s)",
-            "Tlog (degC)",
-            "OT",
         ],
     )
 

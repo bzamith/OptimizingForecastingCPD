@@ -1,10 +1,10 @@
 #!/bin/bash
 
-export OMP_NUM_THREADS=1
-export TF_NUM_INTRAOP_THREADS=1
+export OMP_NUM_THREADS=2
+export TF_NUM_INTRAOP_THREADS=2
 export TF_NUM_INTEROP_THREADS=1
-export MKL_NUM_THREADS=1
-export OPENBLAS_NUM_THREADS=1
+export MKL_NUM_THREADS=2
+export OPENBLAS_NUM_THREADS=2
 
 MAX_JOBS=4
 LOG_DIR="outputs/experiment_logs"
@@ -18,51 +18,55 @@ echo "Using Python: $(which python)"
 echo ""
 
 SEEDS=(0 42 52 101 214 565 600 713 999 1001)
-DATASETS=("UCI AIR_QUALITY" "UCI PRSA_BEIJING" "UCI APPLIANCES_ENERGY" "UCI METRO_TRAFFIC" \
-          "INMET SAOPAULO_SP" "AUTOFORMER WEATHER")
+DATASETS=("INMET SAOPAULO_SP")
+# "UCI AIR_QUALITY" "UCI PRSA_BEIJING" "UCI APPLIANCES_ENERGY" "UCI METRO_TRAFFIC" "INMET SAOPAULO_SP" "AUTOFORMER WEATHER")
 CPD_METHODS=("Window" "Bin_Seg" "Bottom_Up")
 CPD_COST_FUNCTIONS=("L1" "L2" "Normal" "Linear" "Rank" "RBF" "AR")
 CPD_FIXED_CUTS=(0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9)
-FORECASTER_TYPES=("LSTM" "TCN" "GRU")
+FORECASTER_TYPES=("LSTM" "TCN")
 
 total_jobs=0
 declare -a job_pids=()
 
 run_job() {
-  local dataset_full="$1"
-  local forecaster_type="$2"
-  local cpd_method="$3"
-  local cost_function="$4"
+  local seed="$1"
+  local dataset_full="$2"
+  local forecaster_type="$3"
+  local cpd_method="$4"
+  local cost_function="$5"
   read -r dataset_domain dataset_name <<< "$dataset_full"
-  
-  local log_name="${dataset_domain}_${dataset_name}_${cpd_method}_${cost_function}_${forecaster_type}"
+
+  mkdir -p "$LOG_DIR"
+
+  local log_name="seed=${seed}_dataset_domain=${dataset_domain}_dataset_name=${dataset_name}_cpd_method=${cpd_method}_cpd_cost_function=${cost_function}_forecaster_type=${forecaster_type}"
   log_name=$(echo "$log_name" | tr ' ' '_' | tr '/' '_')
   local log_file="$LOG_DIR/${log_name}.log"
-  
+
   # Write start message directly to terminal AND log
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting: $dataset_domain $dataset_name | $cpd_method | $cost_function | $forecaster_type" | tee -a "$log_file"
-  
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting [seed=$seed]: $dataset_domain $dataset_name | $cpd_method | $cost_function | $forecaster_type" | tee -a "$log_file"
+
   # Run in background with explicit redirection
   {
     echo "=== Job started at $(date '+%Y-%m-%d %H:%M:%S') ==="
+    echo "Seed: $seed"
     echo "Dataset: $dataset_domain $dataset_name"
     echo "Method: $cpd_method | Cost: $cost_function | Forecaster: $forecaster_type"
-    echo "Command: python main.py $dataset_domain $dataset_name $cpd_method $cost_function $forecaster_type"
+    echo "Command: python main.py $dataset_domain $dataset_name $cpd_method $cost_function $forecaster_type $seed"
     echo "=== Output ==="
-    
+
     nice -n -10 python main.py \
-      "$dataset_domain" "$dataset_name" "$cpd_method" "$cost_function" "$forecaster_type"
-    
+      "$dataset_domain" "$dataset_name" "$cpd_method" "$cost_function" "$forecaster_type" "$seed"
+
     exit_code=$?
     echo "=== Job finished at $(date '+%Y-%m-%d %H:%M:%S') with exit code: $exit_code ==="
-    
+
     if [ $exit_code -eq 0 ]; then
-      echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✓ COMPLETED: $dataset_domain $dataset_name | $cpd_method | $cost_function | $forecaster_type"
+      echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✓ COMPLETED [seed=$seed]: $dataset_domain $dataset_name | $cpd_method | $cost_function | $forecaster_type"
     else
-      echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✗ FAILED (exit code $exit_code): $dataset_domain $dataset_name | $cpd_method | $cost_function | $forecaster_type"
+      echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✗ FAILED (exit code $exit_code) [seed=$seed]: $dataset_domain $dataset_name | $cpd_method | $cost_function | $forecaster_type"
     fi
   } >> "$log_file" 2>&1 &
-  
+
   local pid=$!
   job_pids+=($pid)
   echo "  → Backgrounded as PID $pid (log: $log_file)"
@@ -90,38 +94,40 @@ cleanup_finished_jobs() {
   job_pids=("${new_pids[@]}")
 }
 
-for dataset in "${DATASETS[@]}"; do
-  for forecaster_type in "${FORECASTER_TYPES[@]}"; do
-    for cpd_method in "${CPD_METHODS[@]}"; do
-      for cost_function in "${CPD_COST_FUNCTIONS[@]}"; do
+for forecaster_type in "${FORECASTER_TYPES[@]}"; do
+  for cpd_method in "${CPD_METHODS[@]}"; do
+    for cost_function in "${CPD_COST_FUNCTIONS[@]}"; do
+      for seed in "${SEEDS[@]}"; do
+        for dataset in "${DATASETS[@]}"; do
+          # Wait for an available slot before launching
+          while [[ $(count_running_jobs) -ge $MAX_JOBS ]]; do
+            sleep 0.5
+            cleanup_finished_jobs
+          done
+
+          run_job "$seed" "$dataset" "$forecaster_type" "$cpd_method" "$cost_function"
+          ((total_jobs++))
+
+          # Show current job count after launching
+          current_jobs=$(count_running_jobs)
+          echo "  → Active jobs: $current_jobs / $MAX_JOBS"
+        done
+      done
+
+      for cpd_cut in "${CPD_FIXED_CUTS[@]}"; do
         # Wait for an available slot before launching
         while [[ $(count_running_jobs) -ge $MAX_JOBS ]]; do
           sleep 0.5
           cleanup_finished_jobs
         done
 
-        run_job "$dataset" "$forecaster_type" "$cpd_method" "$cost_function"
+        run_job "$seed" "$dataset" "$forecaster_type" "Fixed_Perc" "Fixed_Cut_$cpd_cut"
         ((total_jobs++))
 
         # Show current job count after launching
         current_jobs=$(count_running_jobs)
         echo "  → Active jobs: $current_jobs / $MAX_JOBS"
       done
-    done
-
-    for cpd_cut in "${CPD_FIXED_CUTS[@]}"; do
-      # Wait for an available slot before launching
-      while [[ $(count_running_jobs) -ge $MAX_JOBS ]]; do
-        sleep 0.5
-        cleanup_finished_jobs
-      done
-
-      run_job "$dataset" "$forecaster_type" "Fixed_Perc" "Fixed_Cut_$cpd_cut"
-      ((total_jobs++))
-
-      # Show current job count after launching
-      current_jobs=$(count_running_jobs)
-      echo "  → Active jobs: $current_jobs / $MAX_JOBS"
     done
   done
 done

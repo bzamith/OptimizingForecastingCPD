@@ -1,6 +1,6 @@
 """None Scaler implementation that performs no scaling."""
 
-from typing import List
+from typing import List, Union
 
 import pandas as pd
 
@@ -25,7 +25,7 @@ class NoneScaler(BaseScaler):
         """
         super().__init__(variables)
 
-    def fit(self, data: pd.DataFrame) -> None:
+    def fit(self, data: Union[pd.Series, pd.DataFrame]) -> None:
         """Fit the scaler to the provided data (no-op).
 
         Args:
@@ -36,7 +36,7 @@ class NoneScaler(BaseScaler):
         """
         pass
 
-    def fit_scale(self, data: pd.DataFrame) -> pd.DataFrame:
+    def fit_scale(self, data: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.DataFrame]:
         """Return a copy of the data without scaling.
 
         Args:
@@ -47,7 +47,7 @@ class NoneScaler(BaseScaler):
         """
         return data.copy()
 
-    def scale(self, data: pd.DataFrame) -> pd.DataFrame:
+    def scale(self, data: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.DataFrame]:
         """Return a copy of the data without scaling.
 
         Args:
@@ -58,7 +58,7 @@ class NoneScaler(BaseScaler):
         """
         return data.copy()
 
-    def descale(self, data: pd.DataFrame) -> pd.DataFrame:
+    def descale(self, data: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.DataFrame]:
         """Return a copy of the data without descaling.
 
         Args:

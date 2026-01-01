@@ -3,11 +3,12 @@ import os
 import random
 import shutil
 import sys
+import tempfile
 import time
 import warnings
 from datetime import datetime
 
-from keras_tuner import RandomSearch
+from keras_tuner import BayesianOptimization
 
 import numpy as np
 
@@ -16,8 +17,7 @@ import pandas as pd
 import tensorflow as tf
 
 from config.constants import (
-    NB_TRIALS, OBSERVATION_WINDOW,
-    SEED, TRAIN_PERC
+    NB_TRIALS, OBSERVATION_WINDOW, TRAIN_PERC
 )
 
 from src.cpd import CPDCostFunction, CPDMethod, CPDDetectorFactory
@@ -31,52 +31,60 @@ warnings.filterwarnings("ignore", category=FutureWarning, module="keras.src.expo
 warnings.filterwarnings("ignore", category=UserWarning, module="ruptures.costs.costnormal")
 
 tf.get_logger().setLevel('ERROR')
-tf.config.set_visible_devices([], "GPU")
 
-# Enable mixed precision for faster training (~20% speedup with minimal accuracy impact)
-tf.keras.mixed_precision.set_global_policy('mixed_float16')
-
+# GPU Configuration: Enable GPU if available, otherwise use CPU
 gpu_devices = tf.config.list_physical_devices("GPU")
 if gpu_devices:
-    tf.config.experimental.set_memory_growth(gpu_devices[0], True)
-
-np.random.seed(SEED)
-random.seed(SEED)
-tf.random.set_seed(SEED)
-
+    # GPU available - enable memory growth to avoid OOM errors
+    for gpu in gpu_devices:
+        tf.config.experimental.set_memory_growth(gpu, True)
+    # Enable mixed precision for faster training on GPU
+    tf.keras.mixed_precision.set_global_policy('mixed_float16')
+    print(f"Running on GPU: {len(gpu_devices)} device(s) detected")
+else:
+    # CPU-only mode - threading is controlled via environment variables
+    # OMP_NUM_THREADS, TF_NUM_INTRAOP_THREADS set in experiment_executions.sh
+    # Mixed precision disabled on CPU (provides no benefit, may slow down)
+    print("Running on CPU: Using all available cores")
 
 def run(timestamp: str,
         dataset_domain_argv: str,
-        dataset_argv: str,
+        dataset_name_argv: str,
         cpd_method_argv: str,
         cpd_cost_function_argv: str,
-        forecaster_type_argv: str) -> None:
+        forecaster_type_argv: str,
+        seed: int = 42) -> None:
     """Execute the forecasting process with hyperparameter optimization and neural architecture search.
 
     Args:
         timestamp (str): Timestamp of the execution.
         dataset_domain_argv (str): Domain of the dataset (e.g., 'TCPD').
-        dataset_argv (str): Specific dataset to be used (e.g., 'APPLE').
+        dataset_name_argv (str): Specific dataset to be used (e.g., 'APPLE').
         cpd_method_argv (str): Identifier for the change point method (e.g., 'Window').
         cpd_cost_function_argv (str): Identifier for the change point cost function (e.g., 'L1').
-        forecaster_type_argv (str): Type of forecasting model ('LSTM', 'Transformer', 'TCN')..
+        forecaster_type_argv (str): Type of forecasting model ('LSTM', 'Transformer', 'TCN').
+        seed (int): Random seed for reproducibility (default: 42).
 
     Returns:
         None
     """
+    np.random.seed(seed)
+    random.seed(seed)
+    tf.random.set_seed(seed)
+
     def save_report(report_path) -> None:
         with open(f"{report_path}/report.json", 'w') as file:
             json.dump(report, file, indent=4)
 
-    execution_id = f"{timestamp}_{dataset_domain_argv}_{dataset_argv}_{cpd_method_argv}_{cpd_cost_function_argv}_{forecaster_type_argv}_{SEED}"
+    execution_id = f"{timestamp}_{dataset_domain_argv}_{dataset_name_argv}_{cpd_method_argv}_{cpd_cost_function_argv}_{forecaster_type_argv}_{seed}"
     cpd_method = CPDMethod.from_str(cpd_method_argv)
     cpd_cost_function = CPDCostFunction.from_str(cpd_cost_function_argv)
     forecaster_type = ForecasterType.from_str(forecaster_type_argv)
     change_point_approach = f"{cpd_method.value.title()} {cpd_cost_function.value.title()}"
-    outputs_sub_path = f"seed={SEED}/dataset_domain={dataset_domain_argv}/dataset={dataset_argv}/cpd_method={cpd_method.value}/cpd_cost_function={cpd_cost_function.value}/forecaster_type={forecaster_type.value}/timestamp={timestamp}"
+    outputs_sub_path = f"seed={seed}/dataset_domain={dataset_domain_argv}/dataset_name={dataset_name_argv}/cpd_method={cpd_method.value}/cpd_cost_function={cpd_cost_function.value}/forecaster_type={forecaster_type.value}/timestamp={timestamp}"
 
-    print(f"[Step 1] Reading dataset {dataset_argv} from {dataset_domain_argv}")
-    df, variables = read_dataset(dataset_domain_argv, dataset_argv)
+    print(f"[Step 1] Reading dataset {dataset_name_argv} from {dataset_domain_argv}")
+    df, variables = read_dataset(dataset_domain_argv, dataset_name_argv)
     print(f"Variables: {variables}")
     report_path = f"outputs/report/{outputs_sub_path}"
     os.makedirs(report_path, exist_ok=True)
@@ -101,12 +109,12 @@ def run(timestamp: str,
         'cpd_method': cpd_method.value,
         'cpd_cost_function': cpd_cost_function.value,
         'change_point_approach': change_point_approach,
-        'seed': SEED,
+        'seed': seed,
         'observation_window': OBSERVATION_WINDOW,
         'train_perc': TRAIN_PERC,
         'nb_trials': NB_TRIALS,
         'dataset_domain': dataset_domain_argv,
-        'dataset': dataset_argv,
+        'dataset': dataset_name_argv,
         'variables': variables,
         'dataset_shape': df.shape,
         'train_val_shape': train_val.shape,
@@ -195,17 +203,26 @@ def run(timestamp: str,
         forecaster_type=forecaster_type,
         n_variables=n_variables
     )
-    # Use unique tuner directory per job to avoid conflicts in parallel execution
-    forecaster_tuner = RandomSearch(
+
+    # Note: MirroredStrategy only needed for multi-GPU setups
+    gpu_devices = tf.config.list_physical_devices("GPU")
+    if len(gpu_devices) > 1:
+        strategy = tf.distribute.MirroredStrategy()
+    else:
+        strategy = None
+
+    tuner_temp_dir = tempfile.mkdtemp(prefix="keras_tuner_")
+
+    forecaster_tuner = BayesianOptimization(
         forecaster_hypermodel,
         objective='val_loss',
         max_trials=NB_TRIALS,
         executions_per_trial=1,
-        directory=f"outputs/tuner/",
+        directory=tuner_temp_dir,
         project_name=outputs_sub_path,
-        seed=SEED,
+        seed=seed,
         overwrite=True,
-        distribution_strategy=tf.distribute.MirroredStrategy(),
+        distribution_strategy=strategy,
         max_consecutive_failed_trials=int(NB_TRIALS/2)
     )
     start_time = time.time()
@@ -227,19 +244,18 @@ def run(timestamp: str,
     })
     save_report(report_path)
 
-    print("[Step 9] Retrieving best model")
+    print("[Step 9] Retrieving best hyperparameters and rebuilding model")
     best_trial = forecaster_tuner.oracle.get_best_trials(num_trials=1)[0]
-    best_forecaster_model = forecaster_tuner.get_best_models(num_models=1)[0]
     print(f"Trial ID: {best_trial.trial_id}")
     print(f"Hyperparameters: {best_trial.hyperparameters.values}")
     print(f"Score: {best_trial.score}")
     print("-" * 40)
+
+    best_forecaster_model = forecaster_hypermodel.build(best_trial.hyperparameters)
     best_forecaster_model.summary()
     best_forecaster_model = InternalForecaster(
         best_forecaster_model,
         len(variables),
-        best_trial.hyperparameters.values['batch_size'],
-        best_trial.hyperparameters.values['epochs'],
     )
     report.update({
         'best_trial_id': best_trial.trial_id,
@@ -248,14 +264,12 @@ def run(timestamp: str,
         'best_forecaster_model': best_forecaster_model.summary(),
     })
 
-    # Clean up tuner directory to save disk space
-    tuner_dir = os.path.join("outputs/tuner", outputs_sub_path)
-    if os.path.exists(tuner_dir):
-        try:
-            shutil.rmtree(tuner_dir)
-            print(f"Cleaned up tuner directory: {tuner_dir}")
-        except Exception as e:
-            print(f"Warning: Could not clean up tuner directory {tuner_dir}: {e}")
+    # Clean up temp tuner directory
+    try:
+        shutil.rmtree(tuner_temp_dir)
+        print(f"Cleaned up temporary tuner directory: {tuner_temp_dir}")
+    except Exception as e:
+        print(f"Warning: Could not clean up tuner directory {tuner_temp_dir}: {e}")
     save_report(report_path)
 
     print("[Step 10] Fitting scaler on train_val and applying on train_val and test")
@@ -387,20 +401,31 @@ def run(timestamp: str,
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 5:
+    if len(sys.argv) < 6:
         print("""
             Wrong number of parameters!
-            Usage: python main.py <dataset_domain> <dataset> <cpd_method> <cpd_cost_function> <forecaster_type>
+            Usage: python main.py <dataset_domain> <dataset> <cpd_method> <cpd_cost_function> <forecaster_type> [seed]
+
+            Arguments:
+              dataset_domain: Domain of the dataset (e.g., 'TCPD', 'UCI')
+              dataset: Specific dataset name (e.g., 'APPLE', 'SAOPAULO_SP')
+              cpd_method: Change point detection method (e.g., 'Window', 'Bin_Seg')
+              cpd_cost_function: Cost function for CPD (e.g., 'L1', 'L2')
+              forecaster_type: Forecasting model type (e.g., 'LSTM', 'TCN')
+              seed: Random seed for reproducibility (optional, default: 42)
         """)
         sys.exit(1)
 
     dataset_domain_argv = sys.argv[1]
-    dataset_argv = sys.argv[2]
+    dataset_name_argv = sys.argv[2]
     cpd_method_argv = sys.argv[3]
     cpd_cost_function_argv = sys.argv[4]
     forecaster_type_argv = sys.argv[5]
 
+    # Optional seed parameter (default: 42)
+    seed = int(sys.argv[6]) if len(sys.argv) > 6 else 42
+
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
-    run(timestamp, dataset_domain_argv, dataset_argv, cpd_method_argv,
-        cpd_cost_function_argv, forecaster_type_argv)
+    run(timestamp, dataset_domain_argv, dataset_name_argv, cpd_method_argv,
+        cpd_cost_function_argv, forecaster_type_argv, seed)

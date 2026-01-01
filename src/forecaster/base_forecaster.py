@@ -13,7 +13,46 @@ import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.models import Model
 
-from config.constants import EARLY_STOPPING_PATIENCE, FORECAST_HORIZON
+from config.constants import (
+    EARLY_STOPPING_PATIENCE,
+    FORECAST_HORIZON,
+    NB_EPOCHS,
+)
+
+
+def get_adaptive_batch_size(
+    n_samples: int,
+    min_batch: int = 32,
+    max_batch: int = 128,
+) -> int:
+    """Compute an adaptive batch size based on dataset size.
+
+    Strategy:
+    - Use sqrt scaling: batch ~ sqrt(n_samples)
+    - Clamp between min_batch and max_batch
+    - Round to nearest power of 2 for better performance
+
+    Args:
+        n_samples (int): Number of training samples.
+        min_batch (int): Minimum batch size.
+        max_batch (int): Maximum batch size.
+
+    Returns:
+        int: Adaptive batch size.
+    """
+    if n_samples <= 0:
+        raise ValueError("n_samples must be positive.")
+
+    # Base heuristic
+    batch = int(np.sqrt(n_samples))
+
+    # Clamp
+    batch = max(min_batch, min(batch, max_batch))
+
+    # Round to nearest power of 2
+    batch = 2 ** int(np.round(np.log2(batch)))
+
+    return int(batch)
 
 
 def get_early_stopping(is_validation: bool = True) -> EarlyStopping:
@@ -30,7 +69,7 @@ def get_early_stopping(is_validation: bool = True) -> EarlyStopping:
     return EarlyStopping(
         monitor="val_loss" if is_validation else "loss",
         patience=EARLY_STOPPING_PATIENCE,
-        min_delta=1e-2,
+        min_delta=1e-3,
         restore_best_weights=True,
     )
 
@@ -100,21 +139,7 @@ class BaseForecasterHyperModel(HyperModel, ABC):
         len_X_train = len(X_train)
         len_X_val = len(X_val)
 
-        # Calculate batch size range to ensure validation_steps >= 1
-        # Max batch size should be at most len_X_val to ensure at least 1 validation step
-        # Using drop_remainder=True in validation dataset, so we need at least 2 batches
-        max_batch_size = max(4, len_X_val // 2)
-        min_batch_size = min(4, max_batch_size)
-
-        # Calculate appropriate step size (at least 1, at most 1/4 of the range)
-        step_size = max(1, (max_batch_size - min_batch_size) // 4)
-
-        batch_size = hp.Int(
-            "batch_size",
-            min_value=min_batch_size,
-            max_value=max_batch_size,
-            step=step_size,
-        )
+        batch_size = get_adaptive_batch_size(len_X_train)
 
         X_train = tf.convert_to_tensor(X_train, dtype=tf.float32)
         y_train = tf.convert_to_tensor(y_train, dtype=tf.float32)
@@ -122,9 +147,11 @@ class BaseForecasterHyperModel(HyperModel, ABC):
         y_val = tf.convert_to_tensor(y_val, dtype=tf.float32)
 
         train_dataset = tf.data.Dataset.from_tensor_slices((X_train, y_train))
-        train_dataset = train_dataset.batch(batch_size).repeat()
+        train_dataset = train_dataset.batch(batch_size).repeat().prefetch(tf.data.AUTOTUNE)
         val_dataset = tf.data.Dataset.from_tensor_slices((X_val, y_val))
-        val_dataset = val_dataset.batch(batch_size, drop_remainder=True).repeat()
+        val_dataset = (
+            val_dataset.batch(batch_size, drop_remainder=True).repeat().prefetch(tf.data.AUTOTUNE)
+        )
 
         steps_per_epoch = len_X_train // batch_size
         validation_steps = len_X_val // batch_size
@@ -138,7 +165,7 @@ class BaseForecasterHyperModel(HyperModel, ABC):
             train_dataset,
             validation_data=val_dataset,
             validation_steps=validation_steps,
-            epochs=hp.Int("epochs", min_value=25, max_value=75, step=25),
+            epochs=NB_EPOCHS,
             steps_per_epoch=steps_per_epoch,
             **kwargs,
         )
@@ -155,23 +182,17 @@ class InternalForecaster:
     Attributes:
         model (Model): A Keras model used for forecasting.
         n_variables (int): The number of variables in the time series data.
-        batch_size (int): Batch size for training.
-        epochs (int): Number of training epochs.
     """
 
-    def __init__(self, model: Model, n_variables: int, batch_size: int, epochs: int):
+    def __init__(self, model: Model, n_variables: int):
         """Initialize the InternalForecaster.
 
         Args:
             model (Model): A trained Keras model.
             n_variables (int): The number of variables in the time series data.
-            batch_size (int): Batch size for training.
-            epochs (int): Number of training epochs.
         """
         self.model = model
         self.n_variables = n_variables
-        self.batch_size = batch_size
-        self.epochs = epochs
 
     def fit(self, X_train: np.array, y_train: np.array, **kwargs) -> dict:
         """Fits the model to the training data.
@@ -184,17 +205,20 @@ class InternalForecaster:
         Returns:
             dict: A dictionary containing the history of training metrics.
         """
-        num_train = len(X_train)
-        train_dataset = tf.data.Dataset.from_tensor_slices((X_train, y_train))
-        train_dataset = train_dataset.batch(self.batch_size).repeat()
+        len_X_train = len(X_train)
 
-        steps_per_epoch = num_train // self.batch_size
+        batch_size = get_adaptive_batch_size(len_X_train)
+
+        train_dataset = tf.data.Dataset.from_tensor_slices((X_train, y_train))
+        train_dataset = train_dataset.batch(batch_size).repeat().prefetch(tf.data.AUTOTUNE)
+
+        steps_per_epoch = len_X_train // batch_size
 
         kwargs["callbacks"] = kwargs.get("callbacks", []) + [get_early_stopping(False)]
 
         history = self.model.fit(
             train_dataset,
-            epochs=self.epochs,
+            epochs=NB_EPOCHS,
             steps_per_epoch=steps_per_epoch,
             **kwargs,
         )

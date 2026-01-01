@@ -63,10 +63,12 @@ def get_error_results(
         "Avg_WAPE": _wape(y_true, y_pred),
     }
 
-    for i in range(len(variables)):
-        y_true_i = [sublist[i] for sublist in y_true]
-        y_pred_i = [sublist[i] for sublist in y_pred]
-        variable = variables[i]
+    y_true_array = y_true.values if hasattr(y_true, "values") else np.array(y_true)
+    y_pred_array = y_pred.values if hasattr(y_pred, "values") else np.array(y_pred)
+
+    for i, variable in enumerate(variables):
+        y_true_i = y_true_array[:, i]
+        y_pred_i = y_pred_array[:, i]
         results.update(
             {
                 f"{variable}_MAPE": mean_absolute_percentage_error(y_true_i, y_pred_i),

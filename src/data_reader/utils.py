@@ -128,16 +128,19 @@ def create_missing_mask_for_y(
     Returns:
         np.ndarray: Boolean mask array with shape matching y from split_X_y (n_samples, FORECAST_HORIZON, n_features).
     """
-    y_masks = []
     if DATE_COLUMN in missing_mask.columns:
         missing_mask = missing_mask.drop(columns=DATE_COLUMN)
-    for i in range(len(missing_mask) - OBSERVATION_WINDOW - FORECAST_HORIZON + 1):
-        y_masks.append(
-            missing_mask.iloc[
-                i + OBSERVATION_WINDOW : i + OBSERVATION_WINDOW + FORECAST_HORIZON
-            ].values
-        )
-    return np.array(y_masks)
+
+    mask_data = missing_mask.values
+    n_samples = len(mask_data) - OBSERVATION_WINDOW - FORECAST_HORIZON + 1
+    n_features = mask_data.shape[1]
+
+    y_masks = np.empty((n_samples, FORECAST_HORIZON, n_features), dtype=bool)
+
+    for i in range(n_samples):
+        y_masks[i] = mask_data[i + OBSERVATION_WINDOW : i + OBSERVATION_WINDOW + FORECAST_HORIZON]
+
+    return y_masks
 
 
 def split_X_y(df: Union[pd.Series, pd.DataFrame]) -> Tuple[np.array, np.array]:
@@ -157,12 +160,21 @@ def split_X_y(df: Union[pd.Series, pd.DataFrame]) -> Tuple[np.array, np.array]:
         - The OBSERVATION_WINDOW constant defines the number of time steps in each input sample.
         - The FORECAST_HORIZON constant defines the number of future time steps to predict.
     """
-    X, y = [], []
     if DATE_COLUMN in df.columns:
         df = df.drop(columns=DATE_COLUMN)
-    for i in range(len(df) - OBSERVATION_WINDOW - FORECAST_HORIZON + 1):
-        X.append(df.iloc[i : i + OBSERVATION_WINDOW].values)
-        y.append(df.iloc[i + OBSERVATION_WINDOW : i + OBSERVATION_WINDOW + FORECAST_HORIZON].values)
-    X = np.array(X)
-    y = np.array(y)
+
+    # Convert to numpy array once for faster indexing
+    data = df.values
+    n_samples = len(data) - OBSERVATION_WINDOW - FORECAST_HORIZON + 1
+    n_features = data.shape[1]
+
+    # Pre-allocate arrays for better performance
+    X = np.empty((n_samples, OBSERVATION_WINDOW, n_features), dtype=data.dtype)
+    y = np.empty((n_samples, FORECAST_HORIZON, n_features), dtype=data.dtype)
+
+    # Vectorized window creation
+    for i in range(n_samples):
+        X[i] = data[i : i + OBSERVATION_WINDOW]
+        y[i] = data[i + OBSERVATION_WINDOW : i + OBSERVATION_WINDOW + FORECAST_HORIZON]
+
     return X, y

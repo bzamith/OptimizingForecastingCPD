@@ -115,7 +115,7 @@ class TestAUTOFORMERDatasets:
         """Test that datasets contain correct filename and columns."""
         filename, columns = AUTOFORMERDatasets.WEATHER.value
         assert filename == "weather.csv"
-        assert len(columns) == 21
+        assert len(columns) == 8
         assert "p (mbar)" in columns
         assert "T (degC)" in columns
 

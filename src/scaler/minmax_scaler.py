@@ -1,6 +1,6 @@
 """MinMax Scaler implementation using sklearn's MinMaxScaler."""
 
-from typing import List
+from typing import List, Union
 
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler as SklearnMinMaxScaler
@@ -28,7 +28,7 @@ class MinMaxScaler(BaseScaler):
         super().__init__(variables)
         self.scaler = SklearnMinMaxScaler()
 
-    def fit(self, data: pd.DataFrame) -> None:
+    def fit(self, data: Union[pd.Series, pd.DataFrame]) -> None:
         """Fit the scaler to the provided data.
 
         Args:
@@ -39,7 +39,7 @@ class MinMaxScaler(BaseScaler):
         """
         self.scaler.fit(data[self.variables])
 
-    def fit_scale(self, data: pd.DataFrame) -> pd.DataFrame:
+    def fit_scale(self, data: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.DataFrame]:
         """Fit the scaler to the data and transform the specified variables.
 
         Args:
@@ -48,11 +48,11 @@ class MinMaxScaler(BaseScaler):
         Returns:
             pd.DataFrame: A new DataFrame with the specified variables scaled.
         """
-        data_output = data.copy()
-        data_output[self.variables] = self.scaler.fit_transform(data[self.variables])
-        return data_output
+        # Optimize: Use assign to avoid full DataFrame copy
+        scaled_values = self.scaler.fit_transform(data[self.variables])
+        return data.assign(**{var: scaled_values[:, i] for i, var in enumerate(self.variables)})
 
-    def scale(self, data: pd.DataFrame) -> pd.DataFrame:
+    def scale(self, data: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.DataFrame]:
         """Scale the specified variables in the DataFrame using the pre-fitted scaler.
 
         Args:
@@ -61,11 +61,11 @@ class MinMaxScaler(BaseScaler):
         Returns:
             pd.DataFrame: A new DataFrame with the specified variables scaled.
         """
-        data_output = data.copy()
-        data_output[self.variables] = self.scaler.transform(data_output[self.variables])
-        return data_output
+        # Optimize: Use assign to avoid full DataFrame copy
+        scaled_values = self.scaler.transform(data[self.variables])
+        return data.assign(**{var: scaled_values[:, i] for i, var in enumerate(self.variables)})
 
-    def descale(self, data: pd.DataFrame) -> pd.DataFrame:
+    def descale(self, data: Union[pd.Series, pd.DataFrame]) -> Union[pd.Series, pd.DataFrame]:
         """Revert the scaling transformation on the specified variables.
 
         Args:
@@ -74,6 +74,6 @@ class MinMaxScaler(BaseScaler):
         Returns:
             pd.DataFrame: A new DataFrame with the specified variables descaled.
         """
-        data_output = data.copy()
-        data_output[self.variables] = self.scaler.inverse_transform(data_output[self.variables])
-        return data_output
+        # Optimize: Use assign to avoid full DataFrame copy
+        descaled_values = self.scaler.inverse_transform(data[self.variables])
+        return data.assign(**{var: descaled_values[:, i] for i, var in enumerate(self.variables)})

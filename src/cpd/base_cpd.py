@@ -40,10 +40,7 @@ class BaseCPDDetector(ABC):
         Returns:
             np.ndarray: Vertically stacked array of shape (n_samples, n_variables).
         """
-        stack_list = []
-        for col in variables:
-            stack_list.append(df[col].values)
-        return np.vstack(stack_list).T
+        return df[variables].values
 
     @abstractmethod
     def find_change_point(
