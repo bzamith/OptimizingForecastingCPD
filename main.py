@@ -8,7 +8,7 @@ import time
 import warnings
 from datetime import datetime
 
-from keras_tuner import BayesianOptimization
+from keras_tuner import RandomSearch
 
 import numpy as np
 
@@ -213,7 +213,7 @@ def run(timestamp: str,
 
     tuner_temp_dir = tempfile.mkdtemp(prefix="keras_tuner_")
 
-    forecaster_tuner = BayesianOptimization(
+    forecaster_tuner = RandomSearch(
         forecaster_hypermodel,
         objective='val_loss',
         max_trials=NB_TRIALS,

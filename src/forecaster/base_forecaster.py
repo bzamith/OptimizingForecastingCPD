@@ -69,7 +69,7 @@ def get_early_stopping(is_validation: bool = True) -> EarlyStopping:
     return EarlyStopping(
         monitor="val_loss" if is_validation else "loss",
         patience=EARLY_STOPPING_PATIENCE,
-        min_delta=1e-3,
+        min_delta=1e-2,
         restore_best_weights=True,
     )
 

@@ -1,12 +1,12 @@
 #!/bin/bash
 
-export OMP_NUM_THREADS=2
-export TF_NUM_INTRAOP_THREADS=2
+export OMP_NUM_THREADS=6
+export TF_NUM_INTRAOP_THREADS=6
 export TF_NUM_INTEROP_THREADS=1
-export MKL_NUM_THREADS=2
-export OPENBLAS_NUM_THREADS=2
+export MKL_NUM_THREADS=6
+export OPENBLAS_NUM_THREADS=6
 
-MAX_JOBS=4
+MAX_JOBS=1
 LOG_DIR="outputs/experiment_logs"
 mkdir -p "$LOG_DIR"
 
@@ -17,12 +17,11 @@ source "$VENV_PATH/bin/activate"
 echo "Using Python: $(which python)"
 echo ""
 
-SEEDS=(0 42 52 101 214 565 600 713 999 1001)
-DATASETS=("INMET SAOPAULO_SP")
-# "UCI AIR_QUALITY" "UCI PRSA_BEIJING" "UCI APPLIANCES_ENERGY" "UCI METRO_TRAFFIC" "INMET SAOPAULO_SP" "AUTOFORMER WEATHER")
+SEEDS=(0 42 52 101 214) # 565 600 713 999 1001)
+DATASETS=("INMET SAOPAULO_SP" "UCI AIR_QUALITY" "UCI PRSA_BEIJING" "UCI APPLIANCES_ENERGY" "UCI METRO_TRAFFIC" "AUTOFORMER WEATHER")
 CPD_METHODS=("Window" "Bin_Seg" "Bottom_Up")
 CPD_COST_FUNCTIONS=("L1" "L2" "Normal" "Linear" "Rank" "RBF" "AR")
-CPD_FIXED_CUTS=(0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9)
+CPD_FIXED_CUTS=(0.0 0.2 0.4 0.6 0.8)
 FORECASTER_TYPES=("LSTM" "TCN")
 
 total_jobs=0
@@ -38,13 +37,14 @@ run_job() {
 
   mkdir -p "$LOG_DIR"
 
-  local log_name="seed=${seed}_dataset_domain=${dataset_domain}_dataset_name=${dataset_name}_cpd_method=${cpd_method}_cpd_cost_function=${cost_function}_forecaster_type=${forecaster_type}"
-  log_name=$(echo "$log_name" | tr ' ' '_' | tr '/' '_')
-  local log_file="$LOG_DIR/${log_name}.log"
+  local log_dir="$LOG_DIR/seed=$seed/dataset_domain=$dataset_domain/dataset_name=$dataset_name/cpd_method=$cpd_method/cpd_cost_function=$cost_function/forecaster_type=$forecaster_type"
+  log_dir=${log_dir// /_}
+  local log_file="$log_dir/log.log"
+  mkdir -p "$log_dir"
 
-  # Write start message directly to terminal AND log
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting [seed=$seed]: $dataset_domain $dataset_name | $cpd_method | $cost_function | $forecaster_type" | tee -a "$log_file"
-
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting [seed=$seed]: \
+  $dataset_domain $dataset_name | $cpd_method | $cost_function | $forecaster_type" \
+  | tee -a "$log_file"
   # Run in background with explicit redirection
   {
     echo "=== Job started at $(date '+%Y-%m-%d %H:%M:%S') ==="
@@ -95,10 +95,31 @@ cleanup_finished_jobs() {
 }
 
 for forecaster_type in "${FORECASTER_TYPES[@]}"; do
+  for dataset in "${DATASETS[@]}"; do
+    for cpd_fixed_cut in "${CPD_FIXED_CUTS[@]}"; do
+      for seed in "${SEEDS[@]}"; do
+        # Wait for an available slot before launching
+        while [[ $(count_running_jobs) -ge $MAX_JOBS ]]; do
+          sleep 0.5
+          cleanup_finished_jobs
+        done
+
+        run_job "$seed" "$dataset" "$forecaster_type" "Fixed_Perc" "Fixed_Cut_$cpd_fixed_cut"
+        ((total_jobs++))
+
+        # Show current job count after launching
+        current_jobs=$(count_running_jobs)
+        echo "  → Active jobs: $current_jobs / $MAX_JOBS"
+      done
+    done
+  done
+done
+
+for forecaster_type in "${FORECASTER_TYPES[@]}"; do
   for cpd_method in "${CPD_METHODS[@]}"; do
     for cost_function in "${CPD_COST_FUNCTIONS[@]}"; do
-      for seed in "${SEEDS[@]}"; do
-        for dataset in "${DATASETS[@]}"; do
+      for dataset in "${DATASETS[@]}"; do
+        for seed in "${SEEDS[@]}"; do
           # Wait for an available slot before launching
           while [[ $(count_running_jobs) -ge $MAX_JOBS ]]; do
             sleep 0.5
@@ -113,21 +134,6 @@ for forecaster_type in "${FORECASTER_TYPES[@]}"; do
           echo "  → Active jobs: $current_jobs / $MAX_JOBS"
         done
       done
-
-      for cpd_cut in "${CPD_FIXED_CUTS[@]}"; do
-        # Wait for an available slot before launching
-        while [[ $(count_running_jobs) -ge $MAX_JOBS ]]; do
-          sleep 0.5
-          cleanup_finished_jobs
-        done
-
-        run_job "$seed" "$dataset" "$forecaster_type" "Fixed_Perc" "Fixed_Cut_$cpd_cut"
-        ((total_jobs++))
-
-        # Show current job count after launching
-        current_jobs=$(count_running_jobs)
-        echo "  → Active jobs: $current_jobs / $MAX_JOBS"
-      done
     done
   done
 done
@@ -138,11 +144,6 @@ echo "Launched $total_jobs experiments"
 echo "Running with MAX_JOBS=$MAX_JOBS in parallel"
 echo "Logs saved to: $LOG_DIR/"
 echo "=========================================="
-echo ""
-echo "Monitor progress with:"
-echo "  watch -n 5 'ls $LOG_DIR/*.log | wc -l'"
-echo "  tail -f $LOG_DIR/*.log"
-echo "  grep -r \"COMPLETED\\|FAILED\" $LOG_DIR/"
 echo ""
 
 wait
