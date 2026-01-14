@@ -1,10 +1,12 @@
 """Reusable custom layers for time series forecasting models.
 
 This module implements custom Keras layers that can be shared across
-different model architectures."""
+different model architectures.
+
+Note: TensorFlow imports are deferred to runtime to reduce module import cost.
+"""
 
 import numpy as np
-import tensorflow as tf
 from tensorflow.keras import layers
 
 
@@ -87,6 +89,8 @@ class TimestampEncoding(layers.Layer):
         Returns:
             Encoded timestamps of shape (batch, time_steps, d_model)
         """
+        import tensorflow as tf
+
         months = tf.cast(time_features[..., 0], tf.int32)
         days = tf.cast(time_features[..., 1], tf.int32)
         weekdays = tf.cast(time_features[..., 2], tf.int32)
@@ -118,6 +122,8 @@ class PositionalEncoding(layers.Layer):
         self.max_position = max_position
 
     def build(self, input_shape):
+        import tensorflow as tf
+
         seq_len = input_shape[1]
         d_model = input_shape[2]
 
@@ -131,6 +137,8 @@ class PositionalEncoding(layers.Layer):
         self.pos_encoding = tf.constant(pos_encoding[np.newaxis, :, :], dtype=tf.float32)
 
     def call(self, inputs):
+        import tensorflow as tf
+
         return inputs + self.pos_encoding[:, : tf.shape(inputs)[1], :]
 
     def get_config(self):
@@ -157,6 +165,9 @@ class TransformerEncoderBlock(layers.Layer):
         self.use_sparse_attention = use_sparse_attention
 
         self.att = layers.MultiHeadAttention(num_heads=num_heads, key_dim=embed_dim)
+        # Import tensorflow only when instantiating Sequential
+        import tensorflow as tf
+
         self.ffn = tf.keras.Sequential(
             [
                 layers.Dense(ff_dim, activation="relu"),
@@ -179,6 +190,8 @@ class TransformerEncoderBlock(layers.Layer):
         Create a log-sparse attention mask using TensorFlow ops only.
         Output shape: (1, seq_len, seq_len)
         """
+        import tensorflow as tf
+
         i = tf.range(seq_len)[:, None]
         j = tf.range(seq_len)[None, :]
 
@@ -190,6 +203,8 @@ class TransformerEncoderBlock(layers.Layer):
         return mask
 
     def call(self, inputs, training=False):
+        import tensorflow as tf
+
         if self.use_sparse_attention:
             seq_len = tf.shape(inputs)[1]
             attention_mask = self._create_log_sparse_mask(seq_len)
@@ -309,6 +324,8 @@ class ResidualBlock(layers.Layer):
         Returns:
             Output tensor of shape (batch, time, filters)
         """
+        import tensorflow as tf
+
         x = self.conv1(inputs)
         x = self.norm1(x, training=training)
         x = tf.nn.relu(x)

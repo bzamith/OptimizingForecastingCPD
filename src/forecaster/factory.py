@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     from src.forecaster.gru_forecaster import GRUForecasterHyperModel
     from src.forecaster.lstm_forecaster import LSTMForecasterHyperModel
     from src.forecaster.tcn_forecaster import TCNForecasterHyperModel
-    from src.forecaster.transformer_forecaster import TransformerForecasterHyperModel
 
 
 class ForecasterType(Enum):
@@ -24,7 +23,6 @@ class ForecasterType(Enum):
     GRU = "GRU"
     LSTM = "LSTM"
     TCN = "TCN"
-    TRANSFORMER = "Transformer"
 
     @classmethod
     def from_str(cls, forecaster_type_str: str) -> "ForecasterType":
@@ -71,16 +69,12 @@ class ForecasterFactory:
         from src.forecaster.gru_forecaster import GRUForecasterHyperModel  # noqa: F811
         from src.forecaster.lstm_forecaster import LSTMForecasterHyperModel  # noqa: F811
         from src.forecaster.tcn_forecaster import TCNForecasterHyperModel  # noqa: F811
-        from src.forecaster.transformer_forecaster import (  # noqa: F811
-            TransformerForecasterHyperModel,
-        )
 
         return {
             ForecasterType.ARIMA: ARIMAForecasterHyperModel,
             ForecasterType.GRU: GRUForecasterHyperModel,
             ForecasterType.LSTM: LSTMForecasterHyperModel,
             ForecasterType.TCN: TCNForecasterHyperModel,
-            ForecasterType.TRANSFORMER: TransformerForecasterHyperModel,
         }
 
     @classmethod

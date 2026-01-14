@@ -10,7 +10,7 @@ import warnings
 
 import numpy as np
 from statsmodels.tsa.arima.model import ARIMA
-import tensorflow as tf
+from tensorflow.data import Dataset
 from tensorflow.keras.models import Model
 
 from config.constants import FORECAST_HORIZON, OBSERVATION_WINDOW
@@ -126,10 +126,12 @@ class ARIMAModelWrapper(Model):
         Returns:
             Output tensor of shape (batch_size, forecast_horizon, n_variables).
         """
+        from tensorflow import Tensor
+
         if not self._is_fitted or any(model is None for model in self.models):
             raise RuntimeError("Models must be fitted before making predictions.")
 
-        inputs_np = inputs.numpy() if isinstance(inputs, tf.Tensor) else inputs
+        inputs_np = inputs.numpy() if isinstance(inputs, Tensor) else inputs
         batch_size = inputs_np.shape[0]
         predictions = np.zeros((batch_size, self.forecast_horizon, self.n_variables))
 
@@ -138,28 +140,30 @@ class ARIMAModelWrapper(Model):
             # Shape: (observation_window, n_variables)
             history = inputs_np[sample_idx, :, :]
 
-            # Forecast each variable independently
+            # Forecast each variable independently using pre-fitted models
             for var_idx in range(self.n_variables):
                 try:
                     with warnings.catch_warnings():
                         warnings.filterwarnings("ignore")
 
-                        # Get history for this variable
-                        var_history = history[:, var_idx]
-
-                        # Fit ARIMA model on this variable's history
-                        arima_model = ARIMA(var_history, order=(self.p, self.d, self.q))
-                        fitted = arima_model.fit()
-
-                        # Forecast for this variable
-                        forecast = fitted.forecast(steps=self.forecast_horizon)
-                        predictions[sample_idx, :, var_idx] = forecast
+                        # Use the pre-fitted ARIMA model for this variable
+                        # Do NOT refit - models were already fitted in the fit() method
+                        if self.models[var_idx] is not None:
+                            fitted = self.models[var_idx]
+                            # Forecast for this variable
+                            forecast = fitted.forecast(steps=self.forecast_horizon)
+                            predictions[sample_idx, :, var_idx] = forecast
+                        else:
+                            # If no model available, use last observation as fallback
+                            predictions[sample_idx, :, var_idx] = history[-1, var_idx]
 
                 except Exception:
                     # If forecasting fails, use last observation as fallback
                     predictions[sample_idx, :, var_idx] = history[-1, var_idx]
 
-        return tf.convert_to_tensor(predictions, dtype=tf.float32)
+        from tensorflow import convert_to_tensor
+
+        return convert_to_tensor(predictions, dtype="float32")
 
     def fit(
         self,
@@ -200,19 +204,21 @@ class ARIMAModelWrapper(Model):
         Returns:
             MockHistory: Object with history attribute containing training history.
         """
+        from tensorflow import Tensor
+
         # Convert to numpy if needed - handle TensorFlow Dataset
-        if isinstance(x, tf.data.Dataset):
+        if isinstance(x, Dataset):
             # Extract all data from the dataset
             all_x_batches = []
             all_y_batches = []
             for batch_x, batch_y in x.take(steps_per_epoch if steps_per_epoch else -1):
-                batch_x_np = batch_x.numpy() if isinstance(batch_x, tf.Tensor) else batch_x
-                batch_y_np = batch_y.numpy() if isinstance(batch_y, tf.Tensor) else batch_y
+                batch_x_np = batch_x.numpy() if isinstance(batch_x, Tensor) else batch_x
+                batch_y_np = batch_y.numpy() if isinstance(batch_y, Tensor) else batch_y
                 all_x_batches.append(batch_x_np)
                 all_y_batches.append(batch_y_np)
             x_np = np.concatenate(all_x_batches, axis=0) if all_x_batches else np.array([])
             y_np = np.concatenate(all_y_batches, axis=0) if all_y_batches else np.array([])
-        elif isinstance(x, tf.Tensor):
+        elif isinstance(x, Tensor):
             x_np = x.numpy()
             y_np = y.numpy() if y is not None else None
         else:
@@ -289,18 +295,18 @@ class ARIMAModelWrapper(Model):
         ):
             # Use raw validation data directly (before it was wrapped in dataset)
             val_x, val_y = raw_validation_data[0], raw_validation_data[1]
-            val_x_np = val_x.numpy() if isinstance(val_x, tf.Tensor) else np.array(val_x)
-            val_y_np = val_y.numpy() if isinstance(val_y, tf.Tensor) else np.array(val_y)
+            val_x_np = val_x.numpy() if isinstance(val_x, Tensor) else np.array(val_x)
+            val_y_np = val_y.numpy() if isinstance(val_y, Tensor) else np.array(val_y)
         elif validation_data is not None:
-            if isinstance(validation_data, tf.data.Dataset):
+            if isinstance(validation_data, Dataset):
                 # Extract validation data from dataset
                 val_batches_x = []
                 val_batches_y = []
                 # Use a reasonable number of steps to ensure we get data
                 num_steps = max(validation_steps if validation_steps else 1, 1)
                 for batch_x, batch_y in validation_data.take(num_steps):
-                    batch_x_np = batch_x.numpy() if isinstance(batch_x, tf.Tensor) else batch_x
-                    batch_y_np = batch_y.numpy() if isinstance(batch_y, tf.Tensor) else batch_y
+                    batch_x_np = batch_x.numpy() if isinstance(batch_x, Tensor) else batch_x
+                    batch_y_np = batch_y.numpy() if isinstance(batch_y, Tensor) else batch_y
                     val_batches_x.append(batch_x_np)
                     val_batches_y.append(batch_y_np)
                 if val_batches_x:
@@ -308,8 +314,8 @@ class ARIMAModelWrapper(Model):
                     val_y_np = np.concatenate(val_batches_y, axis=0)
             elif isinstance(validation_data, tuple) and len(validation_data) >= 2:
                 val_x, val_y = validation_data[0], validation_data[1]
-                val_x_np = val_x.numpy() if isinstance(val_x, tf.Tensor) else np.array(val_x)
-                val_y_np = val_y.numpy() if isinstance(val_y, tf.Tensor) else np.array(val_y)
+                val_x_np = val_x.numpy() if isinstance(val_x, Tensor) else np.array(val_x)
+                val_y_np = val_y.numpy() if isinstance(val_y, Tensor) else np.array(val_y)
 
         # Compute validation loss if validation data is provided
         val_loss = None
@@ -327,7 +333,7 @@ class ARIMAModelWrapper(Model):
 
                 predictions = self.call(val_x_subset)
                 # Compute MSE loss
-                pred_np = predictions.numpy() if isinstance(predictions, tf.Tensor) else predictions
+                pred_np = predictions.numpy() if isinstance(predictions, Tensor) else predictions
                 val_loss = float(np.mean((pred_np - val_y_subset) ** 2))
 
                 # Ensure loss is valid (not nan or inf from bad predictions)

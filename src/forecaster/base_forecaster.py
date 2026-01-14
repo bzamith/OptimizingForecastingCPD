@@ -10,7 +10,7 @@ import warnings
 
 from keras_tuner import HyperModel
 import numpy as np
-import tensorflow as tf
+from tensorflow.data import AUTOTUNE, Dataset
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.models import Model
 
@@ -142,17 +142,18 @@ class BaseForecasterHyperModel(HyperModel, ABC):
 
         batch_size = get_adaptive_batch_size(len_X_train)
 
-        X_train = tf.convert_to_tensor(X_train, dtype=tf.float32)
-        y_train = tf.convert_to_tensor(y_train, dtype=tf.float32)
-        X_val = tf.convert_to_tensor(X_val, dtype=tf.float32)
-        y_val = tf.convert_to_tensor(y_val, dtype=tf.float32)
+        # Import tensorflow only when needed for tensor conversion
+        from tensorflow import convert_to_tensor
 
-        train_dataset = tf.data.Dataset.from_tensor_slices((X_train, y_train))
-        train_dataset = train_dataset.batch(batch_size).repeat().prefetch(tf.data.AUTOTUNE)
-        val_dataset = tf.data.Dataset.from_tensor_slices((X_val, y_val))
-        val_dataset = (
-            val_dataset.batch(batch_size, drop_remainder=True).repeat().prefetch(tf.data.AUTOTUNE)
-        )
+        X_train = convert_to_tensor(X_train, dtype="float32")
+        y_train = convert_to_tensor(y_train, dtype="float32")
+        X_val = convert_to_tensor(X_val, dtype="float32")
+        y_val = convert_to_tensor(y_val, dtype="float32")
+
+        train_dataset = Dataset.from_tensor_slices((X_train, y_train))
+        train_dataset = train_dataset.batch(batch_size).repeat().prefetch(AUTOTUNE)
+        val_dataset = Dataset.from_tensor_slices((X_val, y_val))
+        val_dataset = val_dataset.batch(batch_size, drop_remainder=True).repeat().prefetch(AUTOTUNE)
 
         steps_per_epoch = len_X_train // batch_size
         validation_steps = len_X_val // batch_size
@@ -220,8 +221,8 @@ class InternalForecaster:
 
         batch_size = get_adaptive_batch_size(len_X_train)
 
-        train_dataset = tf.data.Dataset.from_tensor_slices((X_train, y_train))
-        train_dataset = train_dataset.batch(batch_size).repeat().prefetch(tf.data.AUTOTUNE)
+        train_dataset = Dataset.from_tensor_slices((X_train, y_train))
+        train_dataset = train_dataset.batch(batch_size).repeat().prefetch(AUTOTUNE)
 
         steps_per_epoch = len_X_train // batch_size
 

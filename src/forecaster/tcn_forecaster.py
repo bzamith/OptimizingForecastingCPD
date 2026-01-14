@@ -8,9 +8,9 @@ Reference: https://arxiv.org/abs/1803.01271
 
 from typing import Any
 
-import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 
 from config.constants import (
     FORECAST_HORIZON,
@@ -93,7 +93,7 @@ def build_tcn_model(
     model = Model(inputs=inputs, outputs=outputs)
 
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate, clipnorm=1.0),
+        optimizer=Adam(learning_rate=learning_rate, clipnorm=1.0),
         loss=FORECASTER_LOSS,
     )
 
