@@ -3,6 +3,7 @@
 dist/
 *.egg-info
 *.DS_Store
+*.bak
 .claude/
 
 # Python and Pytest

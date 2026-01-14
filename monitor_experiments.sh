@@ -70,7 +70,9 @@ parse_metadata() {
 get_file_status() {
   local logfile="$1"
   local cache_key=$(make_cache_key "$logfile")
-  local current_mtime=$(stat -f %m "$logfile" 2>/dev/null || echo "0")
+
+  # Use Linux-compatible stat command
+  local current_mtime=$(stat -c %Y "$logfile" 2>/dev/null || echo "0")
 
   local cached_mtime="${file_mtime_cache[$cache_key]}"
   local cached_status="${file_status_cache[$cache_key]}"
@@ -137,9 +139,15 @@ collect_completion_messages() {
       msg=$(grep "COMPLETED\|FAILED" "$logfile" 2>/dev/null | tail -1)
 
       if [[ -n "$msg" ]]; then
-        # Calculate total execution time
-        local birth_time=$(stat -f %B "$logfile" 2>/dev/null)
-        local end_time=$(stat -f %m "$logfile" 2>/dev/null)
+        # Calculate total execution time using Linux-compatible stat
+        local birth_time=$(stat -c %W "$logfile" 2>/dev/null)
+        # Fall back to %Y (mtime) if birth time (%W) is not available or returns 0
+        if [[ "$birth_time" == "0" || -z "$birth_time" ]]; then
+          # Use first line timestamp from log if available, else use mtime
+          birth_time=$(stat -c %Y "$logfile" 2>/dev/null || echo "0")
+        fi
+        local end_time=$(stat -c %Y "$logfile" 2>/dev/null || echo "0")
+
         local elapsed=$((end_time - birth_time))
         local hours=$((elapsed / 3600))
         local minutes=$(((elapsed % 3600) / 60))
@@ -167,9 +175,13 @@ get_active_jobs() {
       if [[ $count -lt $MAX_ACTIVE_JOBS_DISPLAY ]]; then
         metadata=$(parse_metadata "$logfile")
 
-        # Get file birth time (creation time) and format it
-        local birth_time=$(stat -f %B "$logfile" 2>/dev/null)
-        local start_time=$(date -r "$birth_time" '+%H:%M:%S' 2>/dev/null)
+        # Get file birth time (creation time) using Linux-compatible stat
+        local birth_time=$(stat -c %W "$logfile" 2>/dev/null)
+        # Fall back to mtime if birth time is not available or returns 0
+        if [[ "$birth_time" == "0" || -z "$birth_time" ]]; then
+          birth_time=$(stat -c %Y "$logfile" 2>/dev/null || echo "0")
+        fi
+        local start_time=$(date -d "@$birth_time" '+%H:%M:%S' 2>/dev/null || echo "N/A")
 
         # Calculate elapsed time
         local current_time=$(date +%s)

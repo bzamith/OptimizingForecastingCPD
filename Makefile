@@ -60,10 +60,10 @@ clean:
 
 # Run example command
 run:
-	@echo "🚀 Running example: TCPD APPLE Window L1 LSTM"
-	poetry run python main.py TCPD APPLE Window L1 LSTM
+	@echo "🚀 Running example: INMET SAOPAULO_SP Fixed_Perc Fixed_Cut_0.0 LSTM 0"
+	poetry run python main.py INMET SAOPAULO_SP Fixed_Perc Fixed_Cut_0.0 LSTM 0
 
-# Run with custom arguments (use: make run-custom ARGS="TCPD APPLE Window L1 transformer")
+# Run with custom arguments (use: make run-custom ARGS="TCPD APPLE Window L1 LSTM 0")
 run-custom:
 	@echo "🚀 Running: $(ARGS)"
 	poetry run python main.py $(ARGS)

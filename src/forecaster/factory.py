@@ -10,6 +10,7 @@ from typing import Type, TYPE_CHECKING
 from src.forecaster.base_forecaster import BaseForecasterHyperModel
 
 if TYPE_CHECKING:
+    from src.forecaster.arima_forecaster import ARIMAForecasterHyperModel
     from src.forecaster.gru_forecaster import GRUForecasterHyperModel
     from src.forecaster.lstm_forecaster import LSTMForecasterHyperModel
     from src.forecaster.tcn_forecaster import TCNForecasterHyperModel
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
 class ForecasterType(Enum):
     """Enumeration of available forecasting forecaster types."""
 
+    ARIMA = "ARIMA"
     GRU = "GRU"
     LSTM = "LSTM"
     TCN = "TCN"
@@ -65,6 +67,7 @@ class ForecasterFactory:
     @staticmethod
     def _get_forecaster_registry():
         """Lazy load the forecaster registry to avoid circular imports."""
+        from src.forecaster.arima_forecaster import ARIMAForecasterHyperModel  # noqa: F811
         from src.forecaster.gru_forecaster import GRUForecasterHyperModel  # noqa: F811
         from src.forecaster.lstm_forecaster import LSTMForecasterHyperModel  # noqa: F811
         from src.forecaster.tcn_forecaster import TCNForecasterHyperModel  # noqa: F811
@@ -73,6 +76,7 @@ class ForecasterFactory:
         )
 
         return {
+            ForecasterType.ARIMA: ARIMAForecasterHyperModel,
             ForecasterType.GRU: GRUForecasterHyperModel,
             ForecasterType.LSTM: LSTMForecasterHyperModel,
             ForecasterType.TCN: TCNForecasterHyperModel,

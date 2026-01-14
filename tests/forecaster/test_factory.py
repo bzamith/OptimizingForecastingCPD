@@ -41,7 +41,8 @@ class TestForecasterType:
         assert "LSTM" in forecaster_types
         assert "TCN" in forecaster_types
         assert "Transformer" in forecaster_types
-        assert len(forecaster_types) == 4
+        assert "ARIMA" in forecaster_types
+        assert len(forecaster_types) == 5
 
 
 class TestForecasterFactory:
@@ -108,7 +109,8 @@ class TestForecasterFactory:
         assert ForecasterType.LSTM in models
         assert ForecasterType.TCN in models
         assert ForecasterType.TRANSFORMER in models
-        assert len(models) == 4
+        assert ForecasterType.ARIMA in models
+        assert len(models) == 5
 
     def test_create_forecaster_invalid_type(self):
         """Test creating forecaster with invalid type raises error."""

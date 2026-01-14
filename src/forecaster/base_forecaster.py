@@ -6,6 +6,7 @@ This module contains the base classes that all forecaster implementations inheri
 from abc import ABC, abstractmethod
 import io
 from typing import Any
+import warnings
 
 from keras_tuner import HyperModel
 import numpy as np
@@ -157,9 +158,19 @@ class BaseForecasterHyperModel(HyperModel, ABC):
         validation_steps = len_X_val // batch_size
 
         if validation_steps <= 0:
-            raise Exception("Validation steps must be greater than 0.")
+            warnings.warn("Validation steps must be greater than 0.", UserWarning)
+            validation_steps = 1
 
         kwargs["callbacks"] = kwargs.get("callbacks", []) + [get_early_stopping()]
+
+        # For ARIMA models, also pass raw validation data to avoid issues with empty batches
+        # when validation set is smaller than batch size
+        # Only pass this if the model's fit method accepts it (check the signature)
+        import inspect
+
+        fit_signature = inspect.signature(model.fit)
+        if "raw_validation_data" in fit_signature.parameters:
+            kwargs["raw_validation_data"] = (X_val, y_val)
 
         history = model.fit(
             train_dataset,

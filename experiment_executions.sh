@@ -1,12 +1,12 @@
 #!/bin/bash
 
-export OMP_NUM_THREADS=6
-export TF_NUM_INTRAOP_THREADS=6
+export OMP_NUM_THREADS=4
+export TF_NUM_INTRAOP_THREADS=4
 export TF_NUM_INTEROP_THREADS=1
-export MKL_NUM_THREADS=6
-export OPENBLAS_NUM_THREADS=6
+export MKL_NUM_THREADS=4
+export OPENBLAS_NUM_THREADS=4
 
-MAX_JOBS=1
+MAX_JOBS=4
 LOG_DIR="outputs/experiment_logs"
 mkdir -p "$LOG_DIR"
 
@@ -17,15 +17,37 @@ source "$VENV_PATH/bin/activate"
 echo "Using Python: $(which python)"
 echo ""
 
-SEEDS=(0 42 52 101 214) # 565 600 713 999 1001)
+SEEDS=(0 42 52 101 214 565 565 600 713 999 1001)
 DATASETS=("INMET SAOPAULO_SP" "UCI AIR_QUALITY" "UCI PRSA_BEIJING" "UCI APPLIANCES_ENERGY" "UCI METRO_TRAFFIC" "AUTOFORMER WEATHER")
 CPD_METHODS=("Window" "Bin_Seg" "Bottom_Up")
 CPD_COST_FUNCTIONS=("L1" "L2" "Normal" "Linear" "Rank" "RBF" "AR")
-CPD_FIXED_CUTS=(0.0 0.2 0.4 0.6 0.8)
-FORECASTER_TYPES=("LSTM" "TCN")
+CPD_FIXED_CUTS=(0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9)
+FORECASTER_TYPES=("LSTM" "TCN" "ARIMA")
 
 total_jobs=0
+skipped_jobs=0
 declare -a job_pids=()
+
+# Function to check if experiment already completed
+is_completed() {
+  local seed="$1"
+  local dataset_full="$2"
+  local forecaster_type="$3"
+  local cpd_method="$4"
+  local cost_function="$5"
+  read -r dataset_domain dataset_name <<< "$dataset_full"
+
+  local log_dir="$LOG_DIR/seed=$seed/dataset_domain=$dataset_domain/dataset_name=$dataset_name/cpd_method=$cpd_method/cpd_cost_function=$cost_function/forecaster_type=$forecaster_type"
+  log_dir=${log_dir// /_}
+  local log_file="$log_dir/log.log"
+
+  # Check if log file exists and contains COMPLETED marker
+  if [ -f "$log_file" ] && grep -q "COMPLETED" "$log_file" 2>/dev/null; then
+    return 0  # True - already completed
+  else
+    return 1  # False - not completed
+  fi
+}
 
 run_job() {
   local seed="$1"
@@ -41,6 +63,9 @@ run_job() {
   log_dir=${log_dir// /_}
   local log_file="$log_dir/log.log"
   mkdir -p "$log_dir"
+
+  # Clean existing log file before starting
+  rm -f "$log_file"
 
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting [seed=$seed]: \
   $dataset_domain $dataset_name | $cpd_method | $cost_function | $forecaster_type" \
@@ -65,8 +90,12 @@ run_job() {
     else
       echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✗ FAILED (exit code $exit_code) [seed=$seed]: $dataset_domain $dataset_name | $cpd_method | $cost_function | $forecaster_type"
     fi
+
+    # Keep only the last 10 lines of the log file (after job completes)
+    tail -10 "$log_file" > "$log_file.tmp" && mv "$log_file.tmp" "$log_file"
   } >> "$log_file" 2>&1 &
 
+  # Capture PID of the backgrounded job block immediately (not of later short-lived commands)
   local pid=$!
   job_pids+=($pid)
   echo "  → Backgrounded as PID $pid (log: $log_file)"
@@ -98,6 +127,13 @@ for forecaster_type in "${FORECASTER_TYPES[@]}"; do
   for dataset in "${DATASETS[@]}"; do
     for cpd_fixed_cut in "${CPD_FIXED_CUTS[@]}"; do
       for seed in "${SEEDS[@]}"; do
+        # Check if already completed
+        if is_completed "$seed" "$dataset" "$forecaster_type" "Fixed_Perc" "Fixed_Cut_$cpd_fixed_cut"; then
+          echo "[$(date '+%Y-%m-%d %H:%M:%S')] ⊙ SKIPPED (already completed) [seed=$seed]: $dataset | Fixed_Perc | Fixed_Cut_$cpd_fixed_cut | $forecaster_type"
+          ((skipped_jobs++))
+          continue
+        fi
+
         # Wait for an available slot before launching
         while [[ $(count_running_jobs) -ge $MAX_JOBS ]]; do
           sleep 0.5
@@ -120,6 +156,13 @@ for forecaster_type in "${FORECASTER_TYPES[@]}"; do
     for cost_function in "${CPD_COST_FUNCTIONS[@]}"; do
       for dataset in "${DATASETS[@]}"; do
         for seed in "${SEEDS[@]}"; do
+          # Check if already completed
+          if is_completed "$seed" "$dataset" "$forecaster_type" "$cpd_method" "$cost_function"; then
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] ⊙ SKIPPED (already completed) [seed=$seed]: $dataset | $cpd_method | $cost_function | $forecaster_type"
+            ((skipped_jobs++))
+            continue
+          fi
+
           # Wait for an available slot before launching
           while [[ $(count_running_jobs) -ge $MAX_JOBS ]]; do
             sleep 0.5
