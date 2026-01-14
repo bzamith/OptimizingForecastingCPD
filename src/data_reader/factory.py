@@ -74,7 +74,7 @@ class INMETDatasets(Enum):
     BRASILIA_DF = ("A001_Brasilia_DF.csv", ["P", "PrA", "T", "UR", "VV"])
     VITORIA_ES = ("A612_Vitoria_ES.csv", ["P", "PrA", "T", "UR", "VV"])
     PORTOALEGRE_RS = ("A801_PortoAlegre_RS.csv", ["P", "PrA", "T", "UR", "VV"])
-    SAOPAULO_SP = ("A701_SAOPAULO_SP.csv", ["P", "PrA", "T", "UR", "VV"])
+    SAOPAULO_SP = ("A701_SaoPaulo_SP.csv", ["P", "PrA", "T", "UR", "VV"])
 
     @classmethod
     def from_str(cls, dataset_str: str) -> "INMETDatasets":
