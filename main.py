@@ -127,23 +127,59 @@ def run(timestamp: str,
     save_report(report_path)
 
     print(f"[Step 3] Detecting change point ({change_point_approach})")
-    start_time = time.time()
-    start_time_perf = time.perf_counter()
-    start_time_process = time.process_time()
     change_point_detector = CPDDetectorFactory.create_detector(cpd_method, cpd_cost_function)
-    change_point, change_point_perc = change_point_detector.find_change_point(train_val, variables)
-    end_time = time.time()
-    end_time_perf = time.perf_counter()
-    end_time_process = time.process_time()
-    print(f"Change point: {change_point}, Change point percentage: {change_point_perc}")
-    report.update({
-        'detect_change_point_time_duration': end_time - start_time,
-        'detect_change_point_perf_duration': end_time_perf - start_time_perf,
-        'detect_change_point_process_duration': end_time_process - start_time_process,
-        'change_point': str(change_point),
-        'change_point_perc': change_point_perc
-    })
-    save_report(report_path)
+
+    # Check for existing CPD results from previous runs with matching parameters
+    existing_cpd_data = None
+    cpd_search_path = f"outputs/report/seed={seed}/dataset_domain={dataset_domain_argv}/dataset_name={dataset_name_argv}/cpd_method={cpd_method.value}/cpd_cost_function={cpd_cost_function.value}"
+    if os.path.exists(cpd_search_path):
+        for forecaster_dir in os.listdir(cpd_search_path):
+            forecaster_path = os.path.join(cpd_search_path, forecaster_dir)
+            if os.path.isdir(forecaster_path):
+                for ts_dir in os.listdir(forecaster_path):
+                    existing_report_path = os.path.join(forecaster_path, ts_dir, "report.json")
+                    if os.path.exists(existing_report_path):
+                        try:
+                            with open(existing_report_path, 'r') as f:
+                                existing_report = json.load(f)
+                            if 'change_point' in existing_report and 'change_point_perc' in existing_report:
+                                existing_cpd_data = {
+                                    'detect_change_point_time_duration': existing_report.get('detect_change_point_time_duration'),
+                                    'detect_change_point_perf_duration': existing_report.get('detect_change_point_perf_duration'),
+                                    'detect_change_point_process_duration': existing_report.get('detect_change_point_process_duration'),
+                                    'change_point': existing_report['change_point'],
+                                    'change_point_perc': existing_report['change_point_perc']
+                                }
+                                print(f"Found existing CPD data from: {existing_report_path}")
+                                break
+                        except (json.JSONDecodeError, IOError):
+                            continue
+                if existing_cpd_data:
+                    break
+
+    if existing_cpd_data:
+        print(f"Using cached CPD result: change_point={existing_cpd_data['change_point']}, change_point_perc={existing_cpd_data['change_point_perc']}")
+        change_point = int(existing_cpd_data['change_point'])
+        change_point_perc = existing_cpd_data['change_point_perc']
+        report.update(existing_cpd_data)
+        save_report(report_path)
+    else:
+        start_time = time.time()
+        start_time_perf = time.perf_counter()
+        start_time_process = time.process_time()
+        change_point, change_point_perc = change_point_detector.find_change_point(train_val, variables)
+        end_time = time.time()
+        end_time_perf = time.perf_counter()
+        end_time_process = time.process_time()
+        print(f"Change point: {change_point}, Change point percentage: {change_point_perc}")
+        report.update({
+            'detect_change_point_time_duration': end_time - start_time,
+            'detect_change_point_perf_duration': end_time_perf - start_time_perf,
+            'detect_change_point_process_duration': end_time_process - start_time_process,
+            'change_point': str(change_point),
+            'change_point_perc': change_point_perc
+        })
+        save_report(report_path)
 
     print("[Step 4] Reducing train_val based on change point")
     start_time = time.time()

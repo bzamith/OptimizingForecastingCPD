@@ -1,12 +1,12 @@
 #!/bin/bash
 
-export OMP_NUM_THREADS=4
-export TF_NUM_INTRAOP_THREADS=4
-export TF_NUM_INTEROP_THREADS=1
-export MKL_NUM_THREADS=4
-export OPENBLAS_NUM_THREADS=4
+# export OMP_NUM_THREADS=4
+# export TF_NUM_INTRAOP_THREADS=4
+# export TF_NUM_INTEROP_THREADS=1
+# export MKL_NUM_THREADS=4
+# export OPENBLAS_NUM_THREADS=4
 
-MAX_JOBS=4
+MAX_JOBS=1
 LOG_DIR="outputs/experiment_logs"
 mkdir -p "$LOG_DIR"
 
@@ -22,7 +22,7 @@ DATASETS=("INMET SAOPAULO_SP" "UCI AIR_QUALITY" "UCI PRSA_BEIJING" "UCI APPLIANC
 CPD_METHODS=("Window" "Bin_Seg" "Bottom_Up")
 CPD_COST_FUNCTIONS=("L1" "L2" "Normal" "Linear" "Rank" "RBF" "AR")
 CPD_FIXED_CUTS=(0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9)
-FORECASTER_TYPES=("LSTM" "TCN" "ARIMA")
+FORECASTER_TYPES=("LSTM" "TCN")
 
 total_jobs=0
 skipped_jobs=0
@@ -37,16 +37,19 @@ is_completed() {
   local cost_function="$5"
   read -r dataset_domain dataset_name <<< "$dataset_full"
 
-  local log_dir="$LOG_DIR/seed=$seed/dataset_domain=$dataset_domain/dataset_name=$dataset_name/cpd_method=$cpd_method/cpd_cost_function=$cost_function/forecaster_type=$forecaster_type"
-  log_dir=${log_dir// /_}
-  local log_file="$log_dir/log.log"
+  local base_path="seed=$seed/dataset_domain=$dataset_domain/dataset_name=$dataset_name/cpd_method=$cpd_method/cpd_cost_function=$cost_function/forecaster_type=$forecaster_type"
+  base_path=${base_path// /_}
 
-  # Check if log file exists and contains COMPLETED marker
-  if [ -f "$log_file" ] && grep -q "COMPLETED" "$log_file" 2>/dev/null; then
-    return 0  # True - already completed
-  else
-    return 1  # False - not completed
-  fi
+  # Check both outputs/ec2/report and outputs/report directories
+  for report_base in "outputs/ec2/report" "outputs/report"; do
+    local report_dir="$report_base/$base_path"
+    for report_file in "$report_dir"/timestamp=*/report.json; do
+      if [ -f "$report_file" ] && grep -q '"error_results_real_only"' "$report_file" 2>/dev/null; then
+        return 0  # True - already completed
+      fi
+    done
+  done
+  return 1  # False - not completed
 }
 
 run_job() {
@@ -79,8 +82,9 @@ run_job() {
     echo "Command: python main.py $dataset_domain $dataset_name $cpd_method $cost_function $forecaster_type $seed"
     echo "=== Output ==="
 
-    nice -n -10 python main.py \
-      "$dataset_domain" "$dataset_name" "$cpd_method" "$cost_function" "$forecaster_type" "$seed"
+    nice -n -10 \
+        python -u main.py \
+        "$dataset_domain" "$dataset_name" "$cpd_method" "$cost_function" "$forecaster_type" "$seed"
 
     exit_code=$?
     echo "=== Job finished at $(date '+%Y-%m-%d %H:%M:%S') with exit code: $exit_code ==="

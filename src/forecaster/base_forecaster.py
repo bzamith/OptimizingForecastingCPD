@@ -154,7 +154,9 @@ class BaseForecasterHyperModel(HyperModel, ABC):
         train_dataset = Dataset.from_tensor_slices((X_train, y_train))
         train_dataset = train_dataset.batch(batch_size).repeat().prefetch(AUTOTUNE)
         val_dataset = Dataset.from_tensor_slices((X_val, y_val))
-        val_dataset = val_dataset.batch(batch_size, drop_remainder=False).repeat().prefetch(AUTOTUNE)
+        val_dataset = (
+            val_dataset.batch(batch_size, drop_remainder=False).repeat().prefetch(AUTOTUNE)
+        )
 
         steps_per_epoch = len_X_train // batch_size
         validation_steps = math.ceil(len_X_val / batch_size) if len_X_val > 0 else 0
