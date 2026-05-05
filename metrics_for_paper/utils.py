@@ -24,7 +24,8 @@ from metrics_config import (
     CHANGE_POINT_APPROACH_COL, CHANGE_POINT_PERC_COL, DATASET_NAME_COL,
     DATASET_CSV_CONFIG, DATASETS_CONFIG, DATASETS_DISPLAY_NAMES, DATASETS_NAMES,
     ET_CPD_COL, ET_HPO_COL, ET_RETRAIN_COL, ET_TOTAL_COL,
-    INPUT_FOLDER, METRIC_CONFIG, MODEL_TYPE_COL, R2_COL, RMSE_COL, SEEDS, TRAIN_PERC
+    INPUT_FOLDER, METRIC_CONFIG, MODEL_TYPE_COL, R2_COL, RMSE_COL, SEEDS, TRAIN_PERC,
+    MODE, N_SPLITS
 )
 
 
@@ -61,7 +62,9 @@ def get_df_for_dataset(
     file_info = []
     for root, dirs, files in os.walk(directory_path):
         for filename in files:
-            if filename.endswith('.json'):
+            # Only process the aggregated report files to avoid fold-specific reports
+            # that cause issues during deduplication
+            if filename == 'report.json':
                 file_path = os.path.join(root, filename)
                 path_parts = file_path.split(os.sep)
 
@@ -108,28 +111,72 @@ def get_df_for_dataset(
             with open(row['file_path'], 'r') as file:
                 data = json.load(file)
 
-                # Extract timing metrics (convert to minutes)
-                et_cpd = data.get('detect_change_point_perf_duration', np.nan) / 60
-                et_hpo = data.get('tuner_process_duration', np.nan) / 60
-                et_retrain = data.get('retrain_perf_duration', np.nan) / 60
-                et_total = et_cpd + et_hpo + et_retrain
+                # Check if this is a rolling window report
+                is_rolling = 'fold_results' in data
 
-                metrics_dfs.append(pd.DataFrame({
-                    'cpd_method': [row['cpd_method'] or data.get('cpd_method', np.nan)],
-                    'cpd_cost_function': [row['cpd_cost_function'] or data.get('cpd_cost_function', np.nan)],
-                    'forecaster_type': [row['forecaster_type'] or data.get('forecaster_type', np.nan)],
-                    'change_point_approach': [data.get('change_point_approach', np.nan)],
-                    'change_point_perc': [data.get('change_point_perc', np.nan)],
-                    ET_CPD_COL: [et_cpd],
-                    ET_HPO_COL: [et_hpo],
-                    ET_RETRAIN_COL: [et_retrain],
-                    ET_TOTAL_COL: [et_total],
-                    'Avg_MAPE': [data.get('error_results_real_only', {}).get('Avg_MAPE', np.nan)],
-                    'Avg_MAE': [data.get('error_results_real_only', {}).get('Avg_MAE', np.nan)],
-                    'Avg_MSE': [data.get('error_results_real_only', {}).get('Avg_MSE', np.nan)],
-                    'Avg_RMSE': [data.get('error_results_real_only', {}).get('Avg_RMSE', np.nan)],
-                    'Avg_R2': [data.get('error_results_real_only', {}).get('Avg_R2', np.nan)],
-                }))
+                if is_rolling and MODE == "rolling":
+                    # Extract metrics from rolling window report
+                    agg_metrics = data.get('aggregated_metrics_real_only', {})
+                    fold_results = data.get('fold_results', [])
+
+                    # Get mean metrics across folds
+                    avg_rmse = agg_metrics.get('Avg_RMSE_mean', np.nan)
+                    avg_r2 = agg_metrics.get('Avg_R2_mean', np.nan)
+                    avg_mae = agg_metrics.get('Avg_MAE_mean', np.nan)
+                    avg_mse = agg_metrics.get('Avg_MSE_mean', np.nan)
+                    avg_mape = agg_metrics.get('Avg_MAPE_mean', np.nan)
+
+                    # Calculate total execution time across folds (convert to minutes)
+                    total_cpd_time = sum(f.get('cpd_duration', 0) for f in fold_results) / 60
+                    total_tuner_time = sum(f.get('tuner_duration', 0) for f in fold_results) / 60
+                    total_retrain_time = sum(f.get('retrain_duration', 0) for f in fold_results) / 60
+                    et_total = total_cpd_time + total_tuner_time + total_retrain_time
+
+                    # Get change point info from first fold
+                    cp_perc = fold_results[0].get('change_point_perc', np.nan) if fold_results else np.nan
+
+                    metrics_dfs.append(pd.DataFrame({
+                        'cpd_method': [row['cpd_method'] or data.get('cpd_method', np.nan)],
+                        'cpd_cost_function': [row['cpd_cost_function'] or data.get('cpd_cost_function', np.nan)],
+                        'forecaster_type': [row['forecaster_type'] or data.get('forecaster_type', np.nan)],
+                        'change_point_approach': [data.get('change_point_approach', np.nan)],
+                        'change_point_perc': [cp_perc],
+                        ET_CPD_COL: [total_cpd_time],
+                        ET_HPO_COL: [total_tuner_time],
+                        ET_RETRAIN_COL: [total_retrain_time],
+                        ET_TOTAL_COL: [et_total],
+                        'Avg_MAPE': [avg_mape],
+                        'Avg_MAE': [avg_mae],
+                        'Avg_MSE': [avg_mse],
+                        'Avg_RMSE': [avg_rmse],
+                        'Avg_R2': [avg_r2],
+                    }))
+
+                elif not is_rolling and MODE == "regular":
+                    # Extract timing metrics (convert to minutes)
+                    et_cpd = data.get('detect_change_point_perf_duration', np.nan) / 60
+                    et_hpo = data.get('tuner_process_duration', np.nan) / 60
+                    et_retrain = data.get('retrain_perf_duration', np.nan) / 60
+                    et_total = et_cpd + et_hpo + et_retrain
+
+                    metrics_dfs.append(pd.DataFrame({
+                        'cpd_method': [row['cpd_method'] or data.get('cpd_method', np.nan)],
+                        'cpd_cost_function': [row['cpd_cost_function'] or data.get('cpd_cost_function', np.nan)],
+                        'forecaster_type': [row['forecaster_type'] or data.get('forecaster_type', np.nan)],
+                        'change_point_approach': [data.get('change_point_approach', np.nan)],
+                        'change_point_perc': [data.get('change_point_perc', np.nan)],
+                        ET_CPD_COL: [et_cpd],
+                        ET_HPO_COL: [et_hpo],
+                        ET_RETRAIN_COL: [et_retrain],
+                        ET_TOTAL_COL: [et_total],
+                        'Avg_MAPE': [data.get('error_results_real_only', {}).get('Avg_MAPE', np.nan)],
+                        'Avg_MAE': [data.get('error_results_real_only', {}).get('Avg_MAE', np.nan)],
+                        'Avg_MSE': [data.get('error_results_real_only', {}).get('Avg_MSE', np.nan)],
+                        'Avg_RMSE': [data.get('error_results_real_only', {}).get('Avg_RMSE', np.nan)],
+                        'Avg_R2': [data.get('error_results_real_only', {}).get('Avg_R2', np.nan)],
+                    }))
+                # Skip reports that don't match current mode
+
         except KeyError as e:
             print(f"Error in {row['file_path']}: {e}")
 
@@ -155,6 +202,9 @@ def get_df_for_dataset(
 
 def get_individual_results(datasets_dict: dict, dataset_name: str) -> pd.DataFrame:
     """Aggregate results across seeds for a dataset.
+
+    In regular mode: aggregates across multiple seeds
+    In rolling mode: uses single seed (std comes from fold variation in the report)
 
     Args:
         datasets_dict: Dictionary mapping dataset names to seed-indexed DataFrames
@@ -189,6 +239,8 @@ def get_individual_results(datasets_dict: dict, dataset_name: str) -> pd.DataFra
         metric_cols = [col for col in concat_df.columns if f"{metric}_seed_" in col]
         if metric_cols:
             concat_df[f"{metric}_mean"] = concat_df[metric_cols].mean(axis=1, skipna=True)
+            # For rolling mode with single seed, std will be 0 (or NaN)
+            # The actual std from folds would need to be loaded separately if needed
             concat_df[f"{metric}_std"] = concat_df[metric_cols].std(axis=1, skipna=True)
 
     # Reorder columns for clarity
@@ -1099,7 +1151,11 @@ def get_cpd_cuts_latex_table(
                     et_cpd_mean = row[f"{ET_CPD_COL}_mean"].iloc[0]
                     et_cpd_std = row[f"{ET_CPD_COL}_std"].iloc[0]
                     values.append(f"{format_value(cp_perc)}\\%")
-                    values.append(f"{format_value(et_cpd_mean)} $\\pm$ {format_value(et_cpd_std)}")
+                    # In rolling mode, don't show std (single seed)
+                    if MODE == "rolling":
+                        values.append(f"{format_value(et_cpd_mean)}")
+                    else:
+                        values.append(f"{format_value(et_cpd_mean)} $\\pm$ {format_value(et_cpd_std)}")
                 else:
                     values.append("--")
                     values.append("--")
@@ -1126,9 +1182,15 @@ def get_cpd_cuts_latex_table(
     subtable1 = build_subtable(datasets_part1)
     subtable2 = build_subtable(datasets_part2) if datasets_part2 else ""
 
+    # Adjust caption based on mode
+    if MODE == "rolling":
+        et_caption = "in minutes"
+    else:
+        et_caption = "in minutes as mean$\\pm$std"
+
     latex_table = f"""\\begin{{table}}[!htpb]
     \\scriptsize
-    \\caption{{Detected change point (Cut \\%) and CPD execution time ($\\text{{ET}}_{{\\text{{CPD}}}}$, in minutes as mean$\\pm$std) for each CPD approach.}}
+    \\caption{{Detected change point (Cut \\%) and CPD execution time ($\\text{{ET}}_{{\\text{{CPD}}}}$, {et_caption}) for each CPD approach.}}
     \\label{{tab:changePointPercResults}}
     \\centering
     \\vspace{{0.5em}}
@@ -1256,7 +1318,11 @@ def get_latex_tables(
                 if len(row) > 0:
                     mean_val = row[mean_col].iloc[0]
                     std_val = row[std_col].iloc[0]
-                    value_str = f"{format_value(mean_val)} $\\pm$ {format_value(std_val)}"
+                    # In rolling mode, don't show std (single seed)
+                    if MODE == "rolling":
+                        value_str = f"{format_value(mean_val)}"
+                    else:
+                        value_str = f"{format_value(mean_val)} $\\pm$ {format_value(std_val)}"
 
                     if approach != 'No CPD':
                         comparison = get_comparison_str(mean_val, baseline_values[dataset], higher_is_better)
@@ -1407,7 +1473,11 @@ def get_fixed_cut_latex_tables(
                 if len(row) > 0:
                     mean_val = row[mean_col].iloc[0]
                     std_val = row[std_col].iloc[0]
-                    value_str = f"{format_value(mean_val)} $\\pm$ {format_value(std_val)}"
+                    # In rolling mode, don't show std (single seed)
+                    if MODE == "rolling":
+                        value_str = f"{format_value(mean_val)}"
+                    else:
+                        value_str = f"{format_value(mean_val)} $\\pm$ {format_value(std_val)}"
 
                     if approach != 'No CPD':
                         comparison = get_comparison_str(mean_val, baseline_values[dataset], higher_is_better)

@@ -1,5 +1,9 @@
 """
 Configuration constants for metrics analysis notebooks.
+
+Supports two modes:
+- "regular": Original single train/test split with multiple seeds
+- "rolling": Rolling window cross-validation with single seed
 """
 import sys
 import os
@@ -7,27 +11,32 @@ import os
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config.constants import TRAIN_PERC
+from config.constants import TRAIN_PERC, ROLLING_WINDOW_N_SPLITS, ROLLING_WINDOW_TEST_SIZE
+
+# =============================================================================
+# MODE CONFIGURATION - Change this to switch between regular and rolling
+# =============================================================================
+MODE = "rolling"  # Options: "regular" or "rolling"
 
 # =============================================================================
 # PATHS
 # =============================================================================
-# Base project directory (parent of metrics_for_paper)
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-# Input folder with the reports
-INPUT_FOLDER = os.path.join(PROJECT_ROOT, "outputs/report")
-
-# Output folder for saving results
-OUTPUT_FOLDER = os.path.join(PROJECT_ROOT, "outputs/paper_v2")
-
-# Datasets folder
 DATASETS_FOLDER = os.path.join(PROJECT_ROOT, "datasets")
 
-# =============================================================================
-# RANDOM SEEDS
-# =============================================================================
-SEEDS = [0, 42, 52, 101, 214, 565, 600, 713, 999, 1001]
+# Mode-dependent paths
+if MODE == "rolling":
+    INPUT_FOLDER = os.path.join(PROJECT_ROOT, "outputs/rolling_report")
+    OUTPUT_FOLDER = os.path.join(PROJECT_ROOT, "outputs/paper_v3/rolling/")
+    SEEDS = [42]  # Rolling uses single seed with multiple folds
+    N_SPLITS = ROLLING_WINDOW_N_SPLITS
+    TEST_SIZE = ROLLING_WINDOW_TEST_SIZE
+else:
+    INPUT_FOLDER = os.path.join(PROJECT_ROOT, "outputs/report")
+    OUTPUT_FOLDER = os.path.join(PROJECT_ROOT, "outputs/paper_v3/regular/")
+    SEEDS = [0, 42, 52, 101, 214, 565, 600, 713, 999, 1001]
+    N_SPLITS = None
+    TEST_SIZE = None
 
 # =============================================================================
 # DATASET CONFIGURATIONS
@@ -118,10 +127,11 @@ METRIC_CONFIG = {
     ET_TOTAL_COL: {"minimize": True, "display_name": "Execution Time (min)", "format": ".2f"},
 }
 
-# Re-export TRAIN_PERC for convenience
+# Re-export for convenience
 __all__ = [
-    'PROJECT_ROOT', 'INPUT_FOLDER', 'OUTPUT_FOLDER', 'DATASETS_FOLDER',
-    'SEEDS', 'DATASETS_CONFIG', 'DATASETS_NAMES', 'DATASETS_DISPLAY_NAMES',
+    'MODE', 'PROJECT_ROOT', 'INPUT_FOLDER', 'OUTPUT_FOLDER', 'DATASETS_FOLDER',
+    'SEEDS', 'N_SPLITS', 'TEST_SIZE',
+    'DATASETS_CONFIG', 'DATASETS_NAMES', 'DATASETS_DISPLAY_NAMES',
     'DATASET_CSV_CONFIG', 'RMSE_COL', 'R2_COL', 'CHANGE_POINT_PERC_COL',
     'CHANGE_POINT_APPROACH_COL', 'MODEL_TYPE_COL', 'DATASET_NAME_COL',
     'ET_CPD_COL', 'ET_HPO_COL', 'ET_RETRAIN_COL', 'ET_TOTAL_COL',
